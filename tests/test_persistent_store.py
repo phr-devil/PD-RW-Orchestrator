@@ -126,3 +126,42 @@ def test_example_plan_contract_matches_schema():
     schema = json.loads((ROOT / "schemas/plan.schema.json").read_text())
     resolver = RefResolver(base_uri=(ROOT / "schemas").as_uri() + "/", referrer=schema)
     Draft202012Validator(schema, resolver=resolver).validate(source)
+
+
+def test_unique_idempotency_keys_required_before_staging(tmp_path):
+    e = env(tmp_path)
+    missing = (TaskPacket(task_id="A", project_id="P19", task_type="discovery",
+                          objective="a"),)
+    with pytest.raises(ValueError, match="TASK_IDEMPOTENCY_KEYS_REQUIRED_UNIQUE"):
+        stage_plan("plan-missing", missing, environment=e)
+    duplicate = (
+        TaskPacket(task_id="A", project_id="P19", task_type="discovery",
+                   objective="a", idempotency_key="same-key"),
+        TaskPacket(task_id="B", project_id="P19", task_type="discovery",
+                   objective="b", idempotency_key="same-key"),
+    )
+    with pytest.raises(ValueError, match="TASK_IDEMPOTENCY_KEYS_REQUIRED_UNIQUE"):
+        stage_plan("plan-duplicate", duplicate, environment=e)
+    assert not (tmp_path / "private-runtime").exists()
+
+
+def test_dependent_intent_cannot_be_reserved_without_real_evidence(tmp_path):
+    e = env(tmp_path)
+    stage_plan("plan1", plan(), environment=e)
+    with pytest.raises(ValueError, match="UPSTREAM_EVIDENCE_NOT_VERIFIED_NO_DISPATCH"):
+        mark_intent_uncertain("P19", "plan1", "B", "attempt-B", environment=e)
+    assert inspect_plan("P19", "plan1", environment=e)["uncertain_intent_count"] == 0
+
+
+def test_attempt_ids_unique_within_operational_plan(tmp_path):
+    e = env(tmp_path)
+    independent = (
+        TaskPacket(task_id="A", project_id="P19", task_type="discovery",
+                   objective="a", idempotency_key="A-key"),
+        TaskPacket(task_id="B", project_id="P19", task_type="discovery",
+                   objective="b", idempotency_key="B-key"),
+    )
+    stage_plan("plan2", independent, environment=e)
+    mark_intent_uncertain("P19", "plan2", "A", "attempt-1", environment=e)
+    with pytest.raises(ValueError, match="INTENT_ID_ALREADY_RESERVED"):
+        mark_intent_uncertain("P19", "plan2", "B", "attempt-1", environment=e)

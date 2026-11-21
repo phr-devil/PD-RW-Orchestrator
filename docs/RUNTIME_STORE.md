@@ -3,10 +3,10 @@
 The local private SQLite DB stores **immutable scheduling plans and task intent reservations only**. It does not store scientific metrics, raw evidence, original Run, authorization decisions, claim truth, or PD-RW-Agent's own operational receipts.
 
 - Configure `PDRW_ORCH_RUNTIME_DIR` as a separate absolute private directory (not inside the Orchestrator repo, a PD-RW checkout, CASE_LIBRARY, original project root, or private project-map directory).
-- `stage` writes an immutable task DAG and deterministic SHA-256 digest. Re-staging the same `project_id + plan_id` with different content is a conflict.
+- `stage` writes an immutable task DAG and deterministic SHA-256 digest. Every task requires a unique, bounded idempotency key; re-staging the same `project_id + plan_id` with different content is a conflict.
 - `inspect` opens SQLite read-only and does not create missing directories.
 - `mark-uncertain` *only* reserves an operational dispatch intent; it does **not** start an Agent, grant access, or report successful execution. A missing response after any future dispatch is conservatively `RECONCILIATION_REQUIRED`.
-- The same intent ID cannot trigger a second dispatch; a different intent ID is rejected. A future trusted host must verify real process state, the original PD-RW-Agent operation receipt and source evidence **before** enabling an independent recovery operation.
+- A dependent task cannot be reserved until independently validated upstream evidence and host reconciliation exist (not implemented). Intent IDs must be unique within a plan. The same intent ID cannot trigger a second dispatch; a different intent ID is rejected. A future trusted host must verify real process state, the original PD-RW-Agent operation receipt and source evidence **before** enabling an independent recovery operation.
 - `assess_recovery(local, upstream)` combines read-only statuses but never authenticates identity, user decisions, original Run or execution permission.
 
 ## Usage on Windows PowerShell

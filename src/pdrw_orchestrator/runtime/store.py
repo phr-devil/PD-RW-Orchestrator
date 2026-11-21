@@ -129,6 +129,9 @@ def stage_plan(plan_id: str, tasks: tuple[TaskPacket, ...],
     if not 1 <= len(tasks) <= 64:
         raise ValueError("plan task count must be in [1,64]")
     ordered = order_tasks(tasks)
+    keys = [task.idempotency_key for task in ordered]
+    if any(not key or not _ID.fullmatch(key) for key in keys) or len(set(keys)) != len(keys):
+        raise ValueError("TASK_IDEMPOTENCY_KEYS_REQUIRED_UNIQUE")
     project_id = ordered[0].project_id
     _identifier(project_id, "project_id")
     normalized = {t.task_id: t.to_dict() for t in ordered}
@@ -210,7 +213,7 @@ def mark_intent_uncertain(project_id: str, plan_id: str, task_id: str, intent_id
         raise ValueError("PLAN_STORE_MISSING")
     with _database(path, write=True) as db:
         row = db.execute(
-            "SELECT phase,intent_id FROM tasks WHERE project_id=? AND plan_id=? AND task_id=?",
+            "SELECT phase,intent_id,packet_json FROM tasks WHERE project_id=? AND plan_id=? AND task_id=?",
             (project_id, plan_id, task_id)).fetchone()
         if row is None:
             raise ValueError("TASK_NOT_STAGED")
@@ -219,6 +222,14 @@ def mark_intent_uncertain(project_id: str, plan_id: str, task_id: str, intent_id
                 raise ValueError("UNCERTAIN_INTENT_EXISTS_NO_RETRY")
             status = "ALREADY_MARKED_UNCERTAIN_NO_RETRY"
         else:
+            if json.loads(row["packet_json"]).get("dependencies"):
+                raise ValueError("UPSTREAM_EVIDENCE_NOT_VERIFIED_NO_DISPATCH")
+            occupied = db.execute(
+                "SELECT 1 FROM tasks WHERE project_id=? AND plan_id=? "
+                "AND intent_id=? AND task_id<>?",
+                (project_id, plan_id, intent_id, task_id)).fetchone()
+            if occupied:
+                raise ValueError("INTENT_ID_ALREADY_RESERVED")
             db.execute(
                 "UPDATE tasks SET phase='INTENT_UNCERTAIN', intent_id=?, updated_at=? "
                 "WHERE project_id=? AND plan_id=? AND task_id=? AND intent_id IS NULL",
