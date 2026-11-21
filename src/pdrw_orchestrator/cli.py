@@ -1,7 +1,8 @@
-"""Developer CLI; only PD-RW-Agent read-only inspection is a real integration."""
+"""Developer CLI; PD-RW read-only inspection and local operational plans only."""
 from __future__ import annotations
 import argparse
 import json
+import sqlite3
 from pathlib import Path
 
 from .controller import run_demo
@@ -10,10 +11,27 @@ from .planner import demo_plan
 from .policy import load_policy, compile_guidance
 from .models import TaskPacket
 from .registry import load_agents
+from .runtime.store import assess_recovery, inspect_plan, mark_intent_uncertain, stage_plan
 
 
 def _repository_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _load_plan_file(path: str) -> tuple[str, tuple[TaskPacket, ...]]:
+    source = Path(path)
+    if not source.is_file() or source.stat().st_size > 128 * 1024:
+        raise ValueError("PLAN_FILE_MISSING_OR_TOO_LARGE")
+    obj = json.loads(source.read_text(encoding="utf-8"))
+    if not isinstance(obj, dict) or set(obj) != {"schema_version", "plan_id", "tasks"}:
+        raise ValueError("PLAN_FILE_INVALID_SHAPE")
+    if obj["schema_version"] != "1.0" or not isinstance(obj["tasks"], list):
+        raise ValueError("PLAN_FILE_SCHEMA_INVALID")
+    if not 1 <= len(obj["tasks"]) <= 64:
+        raise ValueError("PLAN_TASK_COUNT_INVALID")
+    if any(not isinstance(row, dict) for row in obj["tasks"]):
+        raise ValueError("PLAN_TASK_INVALID")
+    return obj["plan_id"], tuple(TaskPacket(**row) for row in obj["tasks"])
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,8 +51,38 @@ def build_parser() -> argparse.ArgumentParser:
     pdrw.add_argument("--project-id", required=True)
     pdrw.add_argument("--python", dest="pdrw_python", default=None,
                       help="Operator-selected Python executable where PD-RW-Agent RC is installed")
+    schedule = commands.add_parser("schedule", help="Private scheduling intents only; never executes an Agent")
+    schedule.add_argument("action", choices=["stage", "inspect", "mark-uncertain"])
+    schedule.add_argument("--file", dest="plan_file")
+    schedule.add_argument("--project-id")
+    schedule.add_argument("--plan-id")
+    schedule.add_argument("--task-id")
+    schedule.add_argument("--attempt-id")
+    schedule.add_argument("--with-pdrw", action="store_true", help="Opt-in read-only source recovery comparison")
+    schedule.add_argument("--python", dest="pdrw_python", default=None)
     commands.add_parser("demo")
     return parser
+
+
+def _schedule_action(args: argparse.Namespace) -> dict:
+    if args.action == "stage":
+        if not args.plan_file:
+            raise ValueError("PLAN_FILE_REQUIRED")
+        plan_id, tasks = _load_plan_file(args.plan_file)
+        return stage_plan(plan_id, tasks)
+    if not args.project_id or not args.plan_id:
+        raise ValueError("PROJECT_ID_AND_PLAN_ID_REQUIRED")
+    if args.action == "mark-uncertain":
+        if not args.task_id or not args.attempt_id:
+            raise ValueError("TASK_AND_ATTEMPT_IDS_REQUIRED")
+        if args.with_pdrw:
+            raise ValueError("WITH_PDRW_ONLY_FOR_INSPECTION")
+        return mark_intent_uncertain(args.project_id, args.plan_id, args.task_id, args.attempt_id)
+    local = inspect_plan(args.project_id, args.plan_id)
+    if not args.with_pdrw:
+        return local
+    upstream = inspect_resume(args.project_id, python_executable=args.pdrw_python)
+    return {"local": local, "upstream": upstream, "recovery": assess_recovery(local, upstream)}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -65,6 +113,8 @@ def main(argv: list[str] | None = None) -> int:
                           "applies": matches[0].applies(task), "guidance": guidance.to_dict()}
         elif args.command == "pdrw":
             result = inspect_resume(args.project_id, python_executable=args.pdrw_python)
+        elif args.command == "schedule":
+            result = _schedule_action(args)
         elif args.command == "demo":
             report = run_demo(demo_plan(), load_agents(args.agents), load_policy(args.policy))
             result = report.to_dict()
@@ -72,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("command not implemented")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("bridge_status") in (None, "SOURCE_REVIEW_ONLY") else 3
-    except (OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError, TypeError, sqlite3.Error) as exc:
         print(json.dumps({"status": "ERROR", "reason": str(exc)}, ensure_ascii=False))
         return 2
 
