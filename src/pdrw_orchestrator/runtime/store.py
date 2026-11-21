@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping
 
+from .dependencies import DependencyEvidence, DependencyReviewPort
+
 from pdrw_orchestrator.controller import order_tasks
 from pdrw_orchestrator.models import TaskPacket
 
@@ -29,7 +31,7 @@ CREATE TABLE IF NOT EXISTS plans(
 CREATE TABLE IF NOT EXISTS tasks(
   project_id TEXT NOT NULL, plan_id TEXT NOT NULL, task_id TEXT NOT NULL,
   digest TEXT NOT NULL, packet_json TEXT NOT NULL, phase TEXT NOT NULL,
-  intent_id TEXT, updated_at TEXT NOT NULL,
+  intent_id TEXT, updated_at TEXT NOT NULL, dependency_review_refs TEXT,
   PRIMARY KEY(project_id, plan_id, task_id),
   FOREIGN KEY(project_id, plan_id) REFERENCES plans(project_id, plan_id)
 );
@@ -106,6 +108,10 @@ def _database(path: Path, *, write: bool):
             for statement in _SCHEMA.strip().split(";"):
                 if statement.strip():
                     db.execute(statement)
+            # Backward-compatible migration for v0.2 local databases.
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(tasks)")}
+            if "dependency_review_refs" not in columns:
+                db.execute("ALTER TABLE tasks ADD COLUMN dependency_review_refs TEXT")
         yield db
         if write:
             db.commit()
@@ -200,7 +206,8 @@ def inspect_plan(project_id: str, plan_id: str,
 
 
 def mark_intent_uncertain(project_id: str, plan_id: str, task_id: str, intent_id: str,
-                          *, environment: Mapping[str, str] | None = None) -> dict:
+                          *, environment: Mapping[str, str] | None = None,
+                          dependency_reviewer: DependencyReviewPort | None = None) -> dict:
     """Reserve at most once; future process launch must occur in trusted host.
 
     This API does not launch any process. Repeating the same ID does NOT retry.
@@ -222,8 +229,26 @@ def mark_intent_uncertain(project_id: str, plan_id: str, task_id: str, intent_id
                 raise ValueError("UNCERTAIN_INTENT_EXISTS_NO_RETRY")
             status = "ALREADY_MARKED_UNCERTAIN_NO_RETRY"
         else:
-            if json.loads(row["packet_json"]).get("dependencies"):
-                raise ValueError("UPSTREAM_EVIDENCE_NOT_VERIFIED_NO_DISPATCH")
+            dependencies = tuple(json.loads(row["packet_json"]).get("dependencies", []))
+            reviewed_refs = []
+            if dependencies:
+                if dependency_reviewer is None:
+                    raise ValueError("UPSTREAM_EVIDENCE_NOT_VERIFIED_NO_DISPATCH")
+                # Only a deliberately injected trusted-host port may inspect the
+                # original receipt. The CLI has no option to supply this port.
+                reviewed = dependency_reviewer.verify_dependencies(
+                    project_id, plan_id, task_id, dependencies)
+                if not isinstance(reviewed, tuple) or len(reviewed) != len(dependencies):
+                    raise ValueError("HOST_DEPENDENCY_REVIEW_INCOMPLETE")
+                by_id = {r.dependency_task_id: r for r in reviewed
+                         if isinstance(r, DependencyEvidence)}
+                if set(by_id) != set(dependencies) or len(by_id) != len(reviewed):
+                    raise ValueError("HOST_DEPENDENCY_REVIEW_MISMATCH")
+                reviewed_refs = [{
+                    "task_id": dep,
+                    "original_receipt_ref": by_id[dep].original_receipt_ref,
+                    "artifact_sha256": by_id[dep].artifact_sha256,
+                } for dep in dependencies]
             occupied = db.execute(
                 "SELECT 1 FROM tasks WHERE project_id=? AND plan_id=? "
                 "AND intent_id=? AND task_id<>?",
@@ -231,9 +256,10 @@ def mark_intent_uncertain(project_id: str, plan_id: str, task_id: str, intent_id
             if occupied:
                 raise ValueError("INTENT_ID_ALREADY_RESERVED")
             db.execute(
-                "UPDATE tasks SET phase='INTENT_UNCERTAIN', intent_id=?, updated_at=? "
-                "WHERE project_id=? AND plan_id=? AND task_id=? AND intent_id IS NULL",
-                (intent_id, _now(), project_id, plan_id, task_id))
+                "UPDATE tasks SET phase='INTENT_UNCERTAIN', intent_id=?, updated_at=?, "
+                "dependency_review_refs=? WHERE project_id=? AND plan_id=? AND task_id=? AND intent_id IS NULL",
+                (intent_id, _now(), json.dumps(reviewed_refs, sort_keys=True),
+                 project_id, plan_id, task_id))
             status = "INTENT_UNCERTAIN_NO_DISPATCH"
     return {
         "status": status, "project_id": project_id, "plan_id": plan_id,
