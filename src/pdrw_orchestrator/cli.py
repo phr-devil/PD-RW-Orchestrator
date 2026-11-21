@@ -5,7 +5,10 @@ import json
 import sqlite3
 from pathlib import Path
 
+from .agent_result import normalize_result
 from .controller import run_demo
+from .decision import decide_next
+from .instruction import build_bundle
 from .integrations.pdrw import inspect_resume, pdrw_status
 from .planner import demo_plan
 from .policy import load_policy, compile_guidance
@@ -32,6 +35,16 @@ def _load_plan_file(path: str) -> tuple[str, tuple[TaskPacket, ...]]:
     if any(not isinstance(row, dict) for row in obj["tasks"]):
         raise ValueError("PLAN_TASK_INVALID")
     return obj["plan_id"], tuple(TaskPacket(**row) for row in obj["tasks"])
+
+
+def _bounded_json_file(path: str, label: str) -> dict:
+    source = Path(path)
+    if not source.is_file() or source.stat().st_size > 128 * 1024:
+        raise ValueError(f"{label}_FILE_MISSING_OR_TOO_LARGE")
+    obj = json.loads(source.read_text(encoding="utf-8"))
+    if not isinstance(obj, dict):
+        raise ValueError(f"{label}_OBJECT_REQUIRED")
+    return obj
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -61,6 +74,11 @@ def build_parser() -> argparse.ArgumentParser:
     schedule.add_argument("--with-pdrw", action="store_true", help="Opt-in read-only source recovery comparison")
     schedule.add_argument("--python", dest="pdrw_python", default=None)
     commands.add_parser("demo")
+    advice = commands.add_parser("advise", help="Build an offline decision and ChatGPT handoff; no dispatch")
+    advice.add_argument("--task-file", required=True)
+    advice.add_argument("--result-file", required=True)
+    advice.add_argument("--save", action="store_true",
+                        help="Save handoff.json/md into private PDRW_ORCH_RUNTIME_DIR")
     return parser
 
 
@@ -118,6 +136,16 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "demo":
             report = run_demo(demo_plan(), load_agents(args.agents), load_policy(args.policy))
             result = report.to_dict()
+        elif args.command == "advise":
+            task = TaskPacket(**_bounded_json_file(args.task_file, "TASK"))
+            original = _bounded_json_file(args.result_file, "RESULT")
+            normalized = normalize_result(original, task)
+            guidance = compile_guidance(task, load_policy(args.policy))
+            decision = decide_next(task, normalized, guidance, load_agents(args.agents))
+            result = build_bundle(task, normalized, decision, guidance)
+            if args.save:
+                from .instruction import save_bundle
+                result["saved_files"] = save_bundle(result)
         else:
             raise ValueError("command not implemented")
         print(json.dumps(result, ensure_ascii=False, indent=2))

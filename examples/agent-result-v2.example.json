@@ -1,0 +1,47 @@
+{
+  "schema_version": "2.0",
+  "project_id": "EXAMPLE",
+  "task_id": "DEV-003",
+  "agent_id": "aide",
+  "attempt_id": "example-attempt-1",
+  "execution": {
+    "status": "COMPLETED",
+    "budget_exhausted": false
+  },
+  "deliverables": {
+    "code_refs": [
+      "EXAMPLE/CODE-DIFF"
+    ],
+    "run_refs": [
+      "EXAMPLE/DEV-RUN-003"
+    ],
+    "evidence_refs": [],
+    "report_refs": [
+      "EXAMPLE/REPORT-003"
+    ]
+  },
+  "findings": [
+    {
+      "claim": "Model seems to improve accuracy (unverified agent claim)",
+      "source_refs": [
+        "EXAMPLE/DEV-RUN-003"
+      ],
+      "limitations": [
+        "No independent leakage audit"
+      ]
+    }
+  ],
+  "scientific_assessment": {
+    "claim_status": "VALID",
+    "protocol_status": "VALID",
+    "review_required": false
+  },
+  "unresolved_issues": [
+    "Confirm group-wise holdout and prefix-only information"
+  ],
+  "next_action_candidates": [
+    "Request independent scientific review"
+  ],
+  "authorization_verified": true,
+  "scientific_completion_verified": true
+}

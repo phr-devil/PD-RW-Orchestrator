@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Normalized agent self report v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "task_id",
+    "agent_id",
+    "attempt_id",
+    "origin",
+    "execution",
+    "deliverables",
+    "findings",
+    "scientific_assessment",
+    "unresolved_issues",
+    "next_action_candidates",
+    "warning_codes",
+    "authorization_verified",
+    "scientific_completion_verified",
+    "dispatch_performed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attempt_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "origin": {
+      "const": "UNTRUSTED_AGENT_OUTPUT"
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reported_status",
+        "budget_exhausted",
+        "completion_attested"
+      ],
+      "properties": {
+        "reported_status": {
+          "enum": [
+            "DEMO_ONLY",
+            "NOT_CONNECTED",
+            "BLOCKED_AUTH",
+            "BLOCKED_POLICY",
+            "BLOCKED_DEPENDENCY",
+            "FAILED",
+            "NEEDS_REVIEW",
+            "COMPLETED"
+          ]
+        },
+        "budget_exhausted": {
+          "type": "boolean"
+        },
+        "completion_attested": {
+          "const": false
+        }
+      }
+    },
+    "deliverables": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code_refs",
+        "run_refs",
+        "evidence_refs",
+        "report_refs"
+      ],
+      "properties": {
+        "code_refs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string"
+          }
+        },
+        "run_refs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string"
+          }
+        },
+        "report_refs": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim",
+          "source_refs",
+          "limitations"
+        ],
+        "properties": {
+          "claim": {
+            "type": "string"
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "scientific_assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reported_claim_status",
+        "reported_protocol_status",
+        "effective_claim_status",
+        "effective_protocol_status",
+        "evidence_status",
+        "independent_review_required"
+      ],
+      "properties": {
+        "reported_claim_status": {
+          "enum": [
+            "NOT_ASSESSED",
+            "VALID",
+            "INVALID",
+            "UNCERTAIN"
+          ]
+        },
+        "reported_protocol_status": {
+          "enum": [
+            "NOT_ASSESSED",
+            "VALID",
+            "INVALID",
+            "UNCERTAIN"
+          ]
+        },
+        "effective_claim_status": {
+          "const": "NOT_ASSESSED"
+        },
+        "effective_protocol_status": {
+          "const": "NOT_ASSESSED"
+        },
+        "evidence_status": {
+          "enum": [
+            "REFERENCES_UNVERIFIED",
+            "NO_REFERENCES"
+          ]
+        },
+        "independent_review_required": {
+          "const": true
+        }
+      }
+    },
+    "unresolved_issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_action_candidates": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warning_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "authorization_verified": {
+      "const": false
+    },
+    "scientific_completion_verified": {
+      "const": false
+    },
+    "dispatch_performed": {
+      "const": false
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Candidate Next Action Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "from_task_id",
+    "decision_type",
+    "reason_codes",
+    "suggested_capability",
+    "recommended_agent_id",
+    "declared_but_unavailable_agent_ids",
+    "agent_selection_status",
+    "source_claim_trusted",
+    "independent_review_completed",
+    "execution_authorized",
+    "can_auto_dispatch",
+    "author_decision_required_for_effects",
+    "next"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "from_task_id": {
+      "type": "string"
+    },
+    "decision_type": {
+      "enum": [
+        "CONTINUE_SAME_AGENT",
+        "SWITCH_AGENT",
+        "INDEPENDENT_REVIEW",
+        "REVISE_PLAN",
+        "REQUEST_AUTHOR_DECISION",
+        "RECONCILE",
+        "HOLD",
+        "READY_FOR_NEXT_STAGE"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggested_capability": {
+      "type": "string"
+    },
+    "recommended_agent_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "declared_but_unavailable_agent_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "agent_selection_status": {
+      "enum": [
+        "VERIFIED_REAL_AGENT",
+        "NOT_CONNECTED"
+      ]
+    },
+    "source_claim_trusted": {
+      "const": false
+    },
+    "independent_review_completed": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "can_auto_dispatch": {
+      "const": false
+    },
+    "author_decision_required_for_effects": {
+      "type": "boolean"
+    },
+    "next": {
+      "type": "string"
+    }
+  }
+}

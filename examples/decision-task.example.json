@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "task_id": "DEV-003",
+  "project_id": "EXAMPLE",
+  "task_type": "code_experiment",
+  "objective": "Evaluate one bounded IMU signal processing hypothesis under the original DEV protocol",
+  "capability": "code_experiment",
+  "dependencies": [],
+  "evidence_refs": [
+    "EXAMPLE/DEV-BASELINE"
+  ],
+  "protocol_refs": [
+    "EXAMPLE/PROTOCOL"
+  ],
+  "authorization_refs": [],
+  "required_effects": [],
+  "budget": {
+    "max_attempts": 1,
+    "max_model_calls": 0
+  },
+  "idempotency_key": "EXAMPLE-DEV-003"
+}

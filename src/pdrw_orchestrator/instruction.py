@@ -124,3 +124,50 @@ def build_bundle(task: TaskPacket, normalized: dict[str, Any],
         "authorization_verified": False,
         "scientific_completion_verified": False,
     }
+
+def save_bundle(bundle: dict) -> dict[str, str]:
+    """Explicit opt-in private report export; never into the research checkout.
+
+    The content-addressed directory is complete only after both files and a
+    small manifest have been written. The same report is idempotent.
+    """
+    import hashlib
+    from pathlib import Path
+    import re
+
+    from .runtime.store import _store_path
+
+    project_id = bundle["project_id"]
+    task_id = bundle["task_id"]
+    safe = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}\\Z")
+    if not safe.fullmatch(project_id) or not safe.fullmatch(task_id):
+        raise ValueError("EXPORT_ID_INVALID")
+    json_body = json.dumps(bundle, ensure_ascii=False, sort_keys=True, indent=2) + "\\n"
+    markdown_body = bundle["chatgpt_handoff_md"]
+    digest = hashlib.sha256(json_body.encode("utf-8")).hexdigest()[:20]
+    db_path = _store_path(create=True)
+    assert db_path is not None
+    export_root = db_path.parent / "handoffs"
+    export_root.mkdir(exist_ok=True)
+    destination = export_root / (project_id + "." + task_id + "." + digest)
+    payload_names = ("handoff.json", "handoff.md")
+    if destination.exists():
+        manifest = destination / "COMPLETE.json"
+        if not manifest.is_file():
+            raise ValueError("PARTIAL_HANDOFF_EXPORT_REQUIRES_MANUAL_RECONCILIATION")
+        existing = json.loads(manifest.read_text(encoding="utf-8"))
+        if existing.get("sha256") != hashlib.sha256(json_body.encode("utf-8")).hexdigest():
+            raise ValueError("HANDOFF_HASH_MISMATCH")
+        return {"handoff_json": str(destination / payload_names[0]),
+                "handoff_md": str(destination / payload_names[1]),
+                "status": "ALREADY_EXPORTED"}
+    destination.mkdir()
+    (destination / payload_names[0]).write_text(json_body, encoding="utf-8")
+    (destination / payload_names[1]).write_text(markdown_body, encoding="utf-8")
+    (destination / "COMPLETE.json").write_text(json.dumps({
+        "sha256": hashlib.sha256(json_body.encode("utf-8")).hexdigest(),
+        "status": "COMPLETE_DRAFT_ONLY"
+    }), encoding="utf-8")
+    return {"handoff_json": str(destination / payload_names[0]),
+            "handoff_md": str(destination / payload_names[1]),
+            "status": "EXPORTED_DRAFT_ONLY"}
