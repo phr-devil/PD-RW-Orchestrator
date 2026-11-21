@@ -121,6 +121,7 @@ def inspect_resume(
         "scientific_resume_status": payload.get("scientific_resume_status"),
         "active_task_id_declared": declared if isinstance(declared, str) else None,
         "unresolved_operation_count": len(unresolved),
+        "pending_scientific_review_count": operations.get("pending_scientific_review_count", 0),
         "operational_reconciliation_required": bool(
             operations.get("operational_reconciliation_required", False)),
         "next_action_hint": next_hint.get("action") if isinstance(

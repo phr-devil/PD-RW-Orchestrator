@@ -13,6 +13,7 @@ from .integrations.pdrw import inspect_resume, pdrw_status
 from .planner import demo_plan
 from .policy import load_policy, compile_guidance
 from .models import TaskPacket
+from .next_task import policy_task_for_proposal
 from .registry import load_agents
 from .runtime.store import assess_recovery, inspect_plan, mark_intent_uncertain, stage_plan
 
@@ -77,6 +78,9 @@ def build_parser() -> argparse.ArgumentParser:
     advice = commands.add_parser("advise", help="Build an offline decision and ChatGPT handoff; no dispatch")
     advice.add_argument("--task-file", required=True)
     advice.add_argument("--result-file", required=True)
+    advice.add_argument("--with-pdrw", action="store_true",
+                        help="Use one read-only PD-RW-Agent resume, never grant permissions")
+    advice.add_argument("--python", dest="pdrw_python", default=None)
     advice.add_argument("--save", action="store_true",
                         help="Save handoff.json/md into private PDRW_ORCH_RUNTIME_DIR")
     return parser
@@ -140,9 +144,13 @@ def main(argv: list[str] | None = None) -> int:
             task = TaskPacket(**_bounded_json_file(args.task_file, "TASK"))
             original = _bounded_json_file(args.result_file, "RESULT")
             normalized = normalize_result(original, task)
-            guidance = compile_guidance(task, load_policy(args.policy))
-            decision = decide_next(task, normalized, guidance, load_agents(args.agents))
-            result = build_bundle(task, normalized, decision, guidance)
+            all_rules = load_policy(args.policy)
+            guidance = compile_guidance(task, all_rules)
+            context = inspect_resume(task.project_id, python_executable=args.pdrw_python) if args.with_pdrw else None
+            decision = decide_next(task, normalized, guidance, load_agents(args.agents), source_context=context)
+            next_guidance = compile_guidance(policy_task_for_proposal(decision["next_task"]), all_rules)
+            result = build_bundle(task, normalized, decision, guidance,
+                                  next_guidance=next_guidance, source_context=context)
             if args.save:
                 from .instruction import save_bundle
                 result["saved_files"] = save_bundle(result)
