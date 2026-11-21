@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Operational Handoff v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "project_id",
+    "dependency_results",
+    "evidence_refs",
+    "protocol_refs",
+    "authorization_refs",
+    "guidance",
+    "original_authorization_authenticated",
+    "scientific_claim_verified"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dependency_results": {
+      "type": "array",
+      "items": {
+        "$ref": "result.schema.json"
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "protocol_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "authorization_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "guidance": {
+      "type": "object"
+    },
+    "original_authorization_authenticated": {
+      "const": false
+    },
+    "scientific_claim_verified": {
+      "const": false
+    }
+  }
+}

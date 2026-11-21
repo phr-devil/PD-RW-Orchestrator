@@ -31,6 +31,8 @@ class TaskPacket:
     protocol_refs: tuple[str, ...] = ()
     authorization_refs: tuple[str, ...] = ()
     required_effects: tuple[str, ...] = ()
+    budget: dict[str, int] = field(default_factory=dict)
+    idempotency_key: str = ""
     schema_version: str = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -46,6 +48,15 @@ class TaskPacket:
             raise ValueError("duplicate dependencies")
         if self.task_id in self.dependencies:
             raise ValueError("task cannot depend on itself")
+        if not isinstance(self.capability, str) or not isinstance(self.idempotency_key, str):
+            raise ValueError("capability/idempotency_key must be strings")
+        if not isinstance(self.budget, dict) or set(self.budget) - {
+            "max_attempts", "max_model_calls", "max_wall_seconds"
+        }:
+            raise ValueError("budget contains unsupported fields")
+        for key, value in self.budget.items():
+            if type(value) is not int or value < (0 if key == "max_model_calls" else 1):
+                raise ValueError(f"invalid {key}")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
