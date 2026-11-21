@@ -1,11 +1,12 @@
 # Acceptance-driven roadmap
 
-- **M0 (complete):** runnable minimal Python CLI, versioned contracts, deterministic policy filtering, mocked two-agent DAG and tests; no API calls.
-- **M1-A (complete in CI):** bounded read-only PD-RW-Agent RC CLI `resume` bridge, privacy-preserving source status; conditional guidance content with provenance. Tests use simulated upstream responses.
-- **M1-B (code / CI acceptance):** immutable local task plan, private SQLite *scheduling intents only*, restart-safe unresolved attempts and no automatic retry. Project roots and PD-RW science/operation receipts are not replicated. **Real operator-machine PD-RW-Agent integration is still pending**; this is not real research execution.
-- **M1-C (next):** trusted operator-host binding to original project identity, PD-RW-Agent operation receipt correlation and checked process-liveness reconciliation; no blind process restart.
-- **M2:** one real provider task, then second provider handoff. Validate actual CLI/API health, true output references, host permissions, local budget and cancellation. Mark external capability READY only after acceptance.
-- **M3:** PD-RW-Experience provider: imported experience always advisory, source and time binding, contradiction and negative-transfer tests.
-- **M4:** paired evaluation: single vs multi-Agent, with vs without experience, fixed models and total budget, held-out time-valid cases. Measure science error, evidence value, time, cost and interventions. Publication/citation outcomes remain observational.
+- **M0 (complete):** runnable minimal Python CLI, versioned contracts, deterministic policy filtering, mocked two-agent DAG and tests.
+- **M1-A (code and simulated CI complete):** PD-RW-Agent RC CLI read-only `resume` bridge, privacy-preserving source status; no execution permission.
+- **M1-B (code and cross-platform CI complete):** private SQLite scheduling intents, restart-safe unresolved attempts; original science evidence remains authoritative.
+- **D1–D3 (this release):** v1/v2 Agent result normalization; conservative next-action decision; ChatGPT Task Contract + handoff JSON/Markdown. Synthetic/offline test only, not evidence of improved scientific reasoning.
+- **M1-C (pending on operator machine):** original project identity/PD-RW-Agent receipts/process-liveness and permission-bound host bridge.
+- **M2 (next real capability):** one true read-only specialist or host Agent adapter, then a second real Agent handoff. Test health, version, accepted capability, output refs, cancellation and budget on real platform. No dummy-adapter successes.
+- **M3:** PD-RW-Experience advisory provider; check evidence provenance, time visibility and negative transfer.
+- **M4:** paired single vs multi-Agent and with vs without experience evaluation, fixed compute/model budget; measure scientific error, artifact quality, cost and interventions.
 
-Do not add an autonomous paper writer, second PD-RW policy file, second science ledger, heavy microservices, a web dashboard or whole-framework vendoring before M2 has evidence of real value.
+Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning or use Agent self-assessments as permission/scientific truth.

@@ -18,3 +18,4 @@ jobs:
       - run: python -m pytest -q
       - run: pdrw-orch doctor
       - run: pdrw-orch demo
+      - run: pdrw-orch advise --task-file examples/decision-task.example.json --result-file examples/agent-result-v2.example.json

@@ -139,10 +139,10 @@ def save_bundle(bundle: dict) -> dict[str, str]:
 
     project_id = bundle["project_id"]
     task_id = bundle["task_id"]
-    safe = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}\\Z")
+    safe = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}\Z")
     if not safe.fullmatch(project_id) or not safe.fullmatch(task_id):
         raise ValueError("EXPORT_ID_INVALID")
-    json_body = json.dumps(bundle, ensure_ascii=False, sort_keys=True, indent=2) + "\\n"
+    json_body = json.dumps(bundle, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     markdown_body = bundle["chatgpt_handoff_md"]
     digest = hashlib.sha256(json_body.encode("utf-8")).hexdigest()[:20]
     db_path = _store_path(create=True)

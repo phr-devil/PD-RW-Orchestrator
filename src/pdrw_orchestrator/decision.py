@@ -78,6 +78,10 @@ def decide_next(
             kind, capability, why = "RECONCILE", "review", ["DEPENDENCY_NOT_RESOLVED"]
         elif status in ("BLOCKED_AUTH", "BLOCKED_POLICY"):
             kind, capability, why = ("REQUEST_AUTHOR_DECISION" if status == "BLOCKED_AUTH" else "HOLD"), "review", [status]
+        elif execution.get("budget_exhausted"):
+            kind, capability, why = "REVISE_PLAN", "review", ["BUDGET_EXHAUSTED_NO_AUTO_RETRY"]
+        elif status == "NEEDS_REVIEW":
+            kind, capability, why = "INDEPENDENT_REVIEW", "review", ["AGENT_REQUESTED_REVIEW_UNVERIFIED"]
         elif status == "NOT_CONNECTED":
             kind, capability, why = "SWITCH_AGENT", task.capability or task.task_type, ["PREVIOUS_AGENT_NOT_CONNECTED"]
         elif status == "FAILED":

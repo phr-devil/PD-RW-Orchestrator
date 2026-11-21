@@ -45,6 +45,14 @@ pdrw-orch schedule inspect --project-id EXAMPLE --plan-id demo-research-001
 
 See [local store and limits](docs/RUNTIME_STORE.md). The private DB contains operational task metadata only. Recording an intent never launches an agent and never permits an automatic retry.
 
+### New: offline Agent-to-ChatGPT decision bridge (D1–D3)
+
+~~~bash
+pdrw-orch advise --task-file examples/decision-task.example.json --result-file examples/agent-result-v2.example.json
+~~~
+
+Returns a normalized untrusted result, conservative next-action recommendation, concise Agent task draft and six-section ChatGPT handoff report. Add `--save` only with a configured private `PDRW_ORCH_RUNTIME_DIR` to store `handoff.json` / `handoff.md` locally. **This does not run external Agents, verify science, or grant execution permission.** See [decision contract](docs/DECISION_AND_HANDOFF.md).
+
 ### Core design
 
 1. Task DAG and deterministic routing using declared capability plus confirmed adapter readiness.
@@ -61,6 +69,7 @@ See [local store and limits](docs/RUNTIME_STORE.md). The private DB contains ope
 - [Boundaries and readiness](docs/BOUNDARIES.md)
 - [PD-RW-Agent bridge](docs/PDRW_BRIDGE.md)
 - [Operational intent store](docs/RUNTIME_STORE.md)
+- [Decision engine and ChatGPT handoff](docs/DECISION_AND_HANDOFF.md)
 - [User guide](docs/USER_GUIDE.md)
 - [External adapter contract](docs/ADAPTERS.md)
 - [Roadmap and acceptance](docs/ROADMAP.md)
