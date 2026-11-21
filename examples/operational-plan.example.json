@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "demo-research-001",
+  "tasks": [
+    {
+      "schema_version": "1.0",
+      "task_id": "DISCOVERY-1",
+      "project_id": "EXAMPLE",
+      "task_type": "discovery",
+      "objective": "Synthetic evidence search (no real research)",
+      "dependencies": [],
+      "idempotency_key": "demo-discovery-1"
+    },
+    {
+      "schema_version": "1.0",
+      "task_id": "REVIEW-1",
+      "project_id": "EXAMPLE",
+      "task_type": "analysis",
+      "objective": "Synthetic review of upstream output",
+      "dependencies": [
+        "DISCOVERY-1"
+      ],
+      "idempotency_key": "demo-review-1"
+    }
+  ]
+}
