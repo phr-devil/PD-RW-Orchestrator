@@ -92,7 +92,7 @@ def test_invalid_external_results_rejected(override, code):
     ("DEMO_ONLY", True, "RECONCILE"),
     ("NOT_CONNECTED", True, "SWITCH_AGENT"),
     ("FAILED", True, "REVISE_PLAN"),
-    ("BLOCKED_AUTH", True, "REQUEST_AUTHOR_DECISION"),
+    ("BLOCKED_AUTH", True, "VERIFY_EXISTING_SCOPE"),
     ("BLOCKED_POLICY", True, "HOLD"),
     ("BLOCKED_DEPENDENCY", True, "RECONCILE"),
     ("NEEDS_REVIEW", True, "INDEPENDENT_REVIEW"),
@@ -115,8 +115,9 @@ def test_budget_and_explicit_effects_stop_automatic_progress():
     assert decision_for(budget)["reason_codes"][0] == "BUDGET_EXHAUSTED_NO_AUTO_RETRY"
     t = task(required_effects=("local_dev_execution",))
     out = decision_for(raw_v2(), t=t)
-    assert out["decision_type"] == "REQUEST_AUTHOR_DECISION"
-    assert out["author_decision_required_for_effects"] is True
+    assert out["decision_type"] == "VERIFY_EXISTING_SCOPE"
+    assert out["author_decision_required_for_effects"] is False
+    assert out["authorization_status"] == "SCOPE_NOT_YET_VERIFIED"
 
 
 def test_conditionally_denied_effect_does_not_grant_permission():
@@ -150,8 +151,8 @@ def test_instruction_includes_guidance_source_and_only_untrusted_claims():
     normalized = normalize_result(report, t)
     decision = decide_next(t, normalized, guidance, REGISTRY)
     out = build_bundle(t, normalized, decision, guidance)
-    assert "ADVISORY_UNVERIFIED" in out["agent_instruction_draft"]
-    assert "conditions unverified" in out["agent_instruction_draft"]
+    assert "ADVISORY_UNVERIFIED" not in out["agent_instruction_draft"]
+    assert "NOT_COMPILED_FOR_PROPOSED_TASK" in out["agent_instruction_draft"]
     assert "NOT DISPATCHABLE" in out["agent_instruction_draft"]
     assert "NOT_ASSESSED" in out["chatgpt_handoff_md"]
     assert "RUN-01" in out["chatgpt_handoff_md"]
@@ -178,7 +179,7 @@ def test_example_decision_files_and_cli(capsys):
     ]
     assert main(args) == 0
     body = json.loads(capsys.readouterr().out)
-    assert body["schema_version"] == "1.0"
+    assert body["schema_version"] == "1.1"
     assert body["result"]["scientific_assessment"]["effective_claim_status"] == "NOT_ASSESSED"
     assert body["decision"]["decision_type"] == "INDEPENDENT_REVIEW"
     assert body["decision"]["recommended_agent_id"] is None

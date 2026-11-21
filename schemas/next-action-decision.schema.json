@@ -100,7 +100,130 @@
       ]
     },
     "next_task": {
-      "$ref": "next-task.schema.json"
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "NextTaskProposal v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "proposal_id",
+        "project_id",
+        "from_task_id",
+        "decision_type",
+        "task_type",
+        "capability",
+        "objective",
+        "acceptance_criteria",
+        "stop_conditions",
+        "original_protocol_refs",
+        "original_evidence_refs",
+        "unverified_agent_artifact_refs",
+        "prior_authorization_refs_unverified",
+        "prior_effects_for_scope_review_only",
+        "required_effects",
+        "budget",
+        "authorization_verified",
+        "scientific_completion_verified",
+        "can_dispatch"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "status": {
+          "const": "PROPOSED_SOURCE_REVIEW_REQUIRED"
+        },
+        "proposal_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from_task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision_type": {
+          "type": "string"
+        },
+        "task_type": {
+          "type": "string"
+        },
+        "capability": {
+          "type": "string"
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "stop_conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "original_protocol_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "original_evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unverified_agent_artifact_refs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "prior_authorization_refs_unverified": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prior_effects_for_scope_review_only": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_effects": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "budget": {
+          "type": "object",
+          "maxProperties": 0
+        },
+        "authorization_verified": {
+          "const": false
+        },
+        "scientific_completion_verified": {
+          "const": false
+        },
+        "can_dispatch": {
+          "const": false
+        }
+      }
     }
   }
 }
