@@ -43,7 +43,7 @@ def build_instruction(task: TaskPacket, normalized: dict[str, Any],
         "Task budget (example upper bounds, not grants): " + _literal(task.budget),
         "Applicable guidance (does NOT override PD-RW):",
         *(rules or ["- None"]),
-        "Previous report status (AGENT SELF-REPORT): "
+        "Previous report status (UNTRUSTED_AGENT_OUTPUT): "
         + _literal(normalized["execution"]["reported_status"]),
         "Unverified finding claims: " +
         _literal([f["claim"] for f in normalized["findings"][:8]]),

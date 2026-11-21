@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.1 / M1-B local intent store; mock execution only.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.2 offline decision/handoff prototype + M1-B local intent store; no live agent execution.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ## Mission
 
