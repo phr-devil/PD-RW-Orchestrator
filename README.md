@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.1 foundation / dry-run only.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM, not a scientific authority, not yet connected to ARC/AIDE/R&D-Agent.**
+**Status: v0.1 + M1-A read-only bridge / mock execution only.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ## Mission
 
@@ -12,7 +12,7 @@ Use external research agents to discover promising questions, design and impleme
 - **This repository** owns only *operational* routing, task dependency management, policy-guidance selection, agent adapters and handoff transport.
 - **PD-RW-Experience** will optionally supply sourced, conditional experience suggestions, never permissions or scientific conclusions.
 
-### First-use commands (Python 3.11+)
+### Getting started (Python 3.11+)
 
 ~~~bash
 python -m pip install -e ".[dev]"
@@ -24,22 +24,32 @@ pdrw-orch demo
 python -m pytest -q
 ~~~
 
-These commands run with **mock adapters only**. No external model call, download, training, scientific project edit, SEALED read or publication occurs. Do not interpret mock results as a verified research Run.
+Mock execution never calls a model, downloads data, trains, edits scientific project files, reads SEALED or publishes. `DEMO_ONLY` is not a verified research Run.
+
+### New: local PD-RW-Agent read-only recovery
+
+~~~powershell
+# Only after the actual RC checkout and private project map are configured:
+pdrw-orch pdrw inspect --project-id 19 --python "C:\\path\\to\\rc-venv\\Scripts\\python.exe"
+~~~
+
+See [bridge setup and limits](docs/PDRW_BRIDGE.md). Inspects one source-reported resume response using the actual RC CLI. It redacts source excerpts, **never** authenticates author permission, never restarts a process, and never changes a research project. GitHub CI uses synthetic upstream responses only.
 
 ### Core design
 
-1. Task DAG and deterministic routing using **declared capability plus confirmed adapter readiness**.
+1. Task DAG and deterministic routing using declared capability plus confirmed adapter readiness.
 2. Explicit task/result/handoff contracts; references rather than copied project evidence.
-3. Fail-closed effects: no task with real side effects can run until a *trusted host* has implemented authenticated authorization and filesystem/network isolation.
-4. Separate **P0 external authority**, **P1 user requirements**, **P2 must-consider**, **P3 recommendation**, **P4 experience advisory**. A YAML file is not an authorization grant.
-5. Context-efficient guidance: select applicable rules only; no full-context reload or mandatory audits per routine DEV.
-6. Durable execution, real scientific review, and external adapters are later milestones, not advertised as complete.
+3. Fail-closed effects: no task with side effects can run until a trusted host implements authenticated approval and filesystem/network isolation.
+4. Separate **P0 external authority**, **P1 user requirements**, **P2 must-consider**, **P3 recommendation**, **P4 experience advisory**.
+5. Context-efficient guidance: only selected instructions with sources, conditions and evidence pointers; avoid reading irrelevant policies.
+6. Durable execution, real scientific review, and external agent adapters remain later milestones.
 
 ### Repository navigation
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Policy system](docs/POLICY_SYSTEM.md)
 - [Boundaries and readiness](docs/BOUNDARIES.md)
+- [PD-RW-Agent bridge](docs/PDRW_BRIDGE.md)
 - [User guide](docs/USER_GUIDE.md)
 - [External adapter contract](docs/ADAPTERS.md)
 - [Roadmap and acceptance](docs/ROADMAP.md)
@@ -47,8 +57,8 @@ These commands run with **mock adapters only**. No external model call, download
 
 ### Integrations
 
-Existing PD-RW-Agent reference: [RC 1.0 architecture](https://github.com/phr-devil/PD-RW-Agent/blob/rc/v1.0-integration/docs/ARCHITECTURE.md). Pin the actual checked-out commit; its default main branch may differ from RC. Never migrate its science records or reproduce its rules here.
+Existing PD-RW-Agent reference: [RC 1.0 architecture](https://github.com/phr-devil/PD-RW-Agent/blob/rc/v1.0-integration/docs/ARCHITECTURE.md). The RC head inspected for this integration was `9177b6eb822aaa0d1482ef40f54369a8612c42dd` (not proof of the version installed on your machine).
 
-Agent backends are *capability slots*, not automatically installed or authorized. An agent labelled ARC, AIDE or R&D-Agent is unavailable until its actual CLI/API handshake and bounded task acceptance pass. For now the registry intentionally enables only mock adapters.
+Agent backends are capability slots, not automatically installed or authorized. An ARC/AIDE/R&D-Agent adapter remains unavailable until its real CLI/API handshake and bounded task acceptance pass.
 
-No credential, private paper, internal Run, or CASE_LIBRARY bytes belong in this public repository.
+Never commit a private case library, manuscript, original Run, credentials or local machine data into this public repository.

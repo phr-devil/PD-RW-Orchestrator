@@ -12,9 +12,11 @@ The resolver validates schema, unique IDs, task applicability and contradictions
 
 ### Runtime packet
 
-Each applicable rule includes ID, level, source, text, conditions, optional evidence refs. A compiler must not infer that listed evidence has been re-read or verified. The packet should be small (limit relevant rules) and linked back to the original rule/profile version.
+Each applicable rule includes ID, level, source, text, conditions, and optional evidence refs in `selected_items`. A compiler must not infer that listed evidence has been re-read or verified. The packet is small (default maximum 8), and all selected items explicitly label their *limited* authority.
 
-Unknown / conflict states should be explicitly surfaced rather than silently pretending PASS.
+A rule with `conditions` is a **conditional candidate** (`CONDITIONAL_UNVERIFIED`) until grounded applicability is checked by the responsible agent or trusted source. It must not be treated as already applying. P1 `deny_effects` are conservatively applied to matching task types while those conditions remain unresolved; neither the existence nor absence of such a rule can grant execution permission.
+
+Unknown or conflict states are surfaced explicitly rather than silently pretending PASS. This module has **no** authority to interpret frozen protocols, authenticate user decisions, certify scientific validity or access reserved data.
 
 ### Scope
 

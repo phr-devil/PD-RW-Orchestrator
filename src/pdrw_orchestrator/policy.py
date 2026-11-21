@@ -63,6 +63,7 @@ class GuidancePacket:
     advisory: tuple[str, ...]
     denied_effects: tuple[str, ...]
     unresolved_conditions: tuple[str, ...]
+    selected_items: tuple[dict[str, Any], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -71,6 +72,7 @@ class GuidancePacket:
             "advisory": list(self.advisory),
             "denied_effects": list(self.denied_effects),
             "unresolved_conditions": list(self.unresolved_conditions),
+            "selected_items": [dict(item) for item in self.selected_items],
             "permission_granted": False,
             "scientific_truth_verified": False,
         }
@@ -105,6 +107,8 @@ def compile_guidance(
     task: TaskPacket, rules: tuple[Guidance, ...], *,
     limit: int = 8,
 ) -> GuidancePacket:
+    if type(limit) is not int or limit < 1:
+        raise ValueError("guidance limit must be positive integer")
     matching = sorted((r for r in rules if r.applies(task)),
                       key=lambda r: (RANK[r.level], r.id))
     ids = [r.id for r in matching]
@@ -117,10 +121,22 @@ def compile_guidance(
     denied = sorted({effect for r in chosen for effect in r.deny_effects
                      if effect in task.required_effects})
     unknown = [r.id for r in chosen if r.conditions]
+    items = tuple({
+        "id": r.id,
+        "level": r.level,
+        "source": r.source,
+        "text": r.text,
+        "evidence_refs": list(r.evidence_refs),
+        "conditions": list(r.conditions),
+        "applicability": "CONDITIONAL_UNVERIFIED" if r.conditions else "TASK_TYPE_MATCH",
+        "instruction_authority": "ADVISORY_DATA" if r.level == "experience"
+                                 else "LOCAL_GUIDANCE_NOT_AUTHORIZATION",
+    } for r in chosen)
     return GuidancePacket(
         rule_ids=tuple(r.id for r in chosen),
         must_consider=tuple(r.id for r in chosen if r.level == "must_consider"),
         advisory=tuple(r.id for r in chosen if r.level in ("recommendation", "experience")),
         denied_effects=tuple(denied),
         unresolved_conditions=tuple(unknown),
+        selected_items=items,
     )
