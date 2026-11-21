@@ -215,3 +215,28 @@ def test_export_requires_private_runtime_not_project_tree(monkeypatch, tmp_path)
     bundle = build_bundle(t, normalized, decide_next(t, normalized, guidance, REGISTRY), guidance)
     with pytest.raises(ValueError, match="PDRW_ORCH_RUNTIME_DIR_REQUIRED"):
         save_bundle(bundle)
+
+def test_export_detects_content_mutation(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("PDRW_ORCH_RUNTIME_DIR", str(tmp_path / "private-runtime"))
+    args = [
+        "advise", "--task-file", str(ROOT / "examples/decision-task.example.json"),
+        "--result-file", str(ROOT / "examples/agent-result-v2.example.json"), "--save",
+    ]
+    assert main(args) == 0
+    data = json.loads(capsys.readouterr().out)
+    md_file = Path(data["saved_files"]["handoff_md"])
+    md_file.write_text("tampered text", encoding="utf-8")
+    assert main(args) == 2
+    assert "HANDOFF_CONTENT_MISMATCH" in capsys.readouterr().out
+
+def test_export_detects_deleted_json(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("PDRW_ORCH_RUNTIME_DIR", str(tmp_path / "private-runtime"))
+    args = [
+        "advise", "--task-file", str(ROOT / "examples/decision-task.example.json"),
+        "--result-file", str(ROOT / "examples/agent-result-v2.example.json"), "--save",
+    ]
+    assert main(args) == 0
+    data = json.loads(capsys.readouterr().out)
+    Path(data["saved_files"]["handoff_json"]).unlink()
+    assert main(args) == 2
+    assert "HANDOFF_CONTENT_MISMATCH" in capsys.readouterr().out

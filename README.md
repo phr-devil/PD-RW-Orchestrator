@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.2 offline decision/handoff prototype + M1-B local intent store; no live agent execution.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.3 task-transition and read-only source bridge; no live external-agent execution.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ## Mission
 
@@ -70,6 +70,7 @@ Returns a normalized untrusted result, conservative next-action recommendation, 
 - [PD-RW-Agent bridge](docs/PDRW_BRIDGE.md)
 - [Operational intent store](docs/RUNTIME_STORE.md)
 - [Decision engine and ChatGPT handoff](docs/DECISION_AND_HANDOFF.md)
+- [Next-task transition and scope semantics](docs/TASK_TRANSITION.md)
 - [User guide](docs/USER_GUIDE.md)
 - [External adapter contract](docs/ADAPTERS.md)
 - [Roadmap and acceptance](docs/ROADMAP.md)

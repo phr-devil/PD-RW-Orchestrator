@@ -67,7 +67,7 @@ def test_completed_dev_to_independent_review_has_own_policy_and_objective():
     bundle = build_bundle(t, n, d, previous, next_guidance=next_guidance)
     assert "REVIEW-ONLY" in bundle["agent_instruction_draft"]
     assert "DEV-ONLY" not in bundle["agent_instruction_draft"]
-    assert 'NEXT task objective:' in bundle["agent_instruction_draft"]
+    assert 'NEW task objective:' in bundle["agent_instruction_draft"]
     assert 'Next-task requested effects: []' in bundle["agent_instruction_draft"]
     assert 'Next-task budget (NOT inherited): {}' in bundle["agent_instruction_draft"]
     assert bundle["next_task"] == d["next_task"]

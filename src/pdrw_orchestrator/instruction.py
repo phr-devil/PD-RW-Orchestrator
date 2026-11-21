@@ -119,48 +119,73 @@ def build_bundle(task: TaskPacket, normalized: dict[str, Any],
     }
 
 def save_bundle(bundle: dict) -> dict[str, str]:
-    """Explicit opt-in private report export; never into the research checkout.
+    """Atomically export a private, content-verified *draft* handoff.
 
-    The content-addressed directory is complete only after both files and a
-    small manifest have been written. The same report is idempotent.
+    Only operational report copies are stored. Existing outputs are checked
+    against their *actual bytes*, including Markdown, not just the manifest.
     """
     import hashlib
-    from pathlib import Path
+    import os
     import re
-
+    import shutil
+    import tempfile
+    from pathlib import Path
     from .runtime.store import _store_path
 
     project_id = bundle["project_id"]
     task_id = bundle["task_id"]
-    safe = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}\Z")
+    safe = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}\\Z")
     if not safe.fullmatch(project_id) or not safe.fullmatch(task_id):
         raise ValueError("EXPORT_ID_INVALID")
-    json_body = json.dumps(bundle, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
-    markdown_body = bundle["chatgpt_handoff_md"]
-    digest = hashlib.sha256(json_body.encode("utf-8")).hexdigest()[:20]
+    json_body = (json.dumps(bundle, ensure_ascii=False, sort_keys=True, indent=2) + "\\n").encode("utf-8")
+    markdown_body = bundle["chatgpt_handoff_md"].encode("utf-8")
+    json_hash = hashlib.sha256(json_body).hexdigest()
+    md_hash = hashlib.sha256(markdown_body).hexdigest()
     db_path = _store_path(create=True)
     assert db_path is not None
     export_root = db_path.parent / "handoffs"
-    export_root.mkdir(exist_ok=True)
-    destination = export_root / (project_id + "." + task_id + "." + digest)
-    payload_names = ("handoff.json", "handoff.md")
-    if destination.exists():
+    if export_root.is_symlink():
+        raise ValueError("HANDOFF_EXPORT_ROOT_SYMLINK")
+    export_root.mkdir(mode=0o700, exist_ok=True)
+    destination = export_root / (project_id + "." + task_id + "." + json_hash[:20])
+    expected = {"handoff.json": json_body, "handoff.md": markdown_body}
+    def check_existing() -> dict[str, str]:
+        if destination.is_symlink() or not destination.is_dir():
+            raise ValueError("HANDOFF_EXPORT_PATH_INVALID")
         manifest = destination / "COMPLETE.json"
-        if not manifest.is_file():
+        if manifest.is_symlink() or not manifest.is_file():
             raise ValueError("PARTIAL_HANDOFF_EXPORT_REQUIRES_MANUAL_RECONCILIATION")
-        existing = json.loads(manifest.read_text(encoding="utf-8"))
-        if existing.get("sha256") != hashlib.sha256(json_body.encode("utf-8")).hexdigest():
+        record = json.loads(manifest.read_text(encoding="utf-8"))
+        if record.get("sha256") != json_hash:
             raise ValueError("HANDOFF_HASH_MISMATCH")
-        return {"handoff_json": str(destination / payload_names[0]),
-                "handoff_md": str(destination / payload_names[1]),
+        if record.get("markdown_sha256", md_hash) != md_hash:
+            raise ValueError("HANDOFF_MARKDOWN_HASH_MISMATCH")
+        for name, body in expected.items():
+            file = destination / name
+            if file.is_symlink() or not file.is_file() or file.read_bytes() != body:
+                raise ValueError("HANDOFF_CONTENT_MISMATCH")
+        return {"handoff_json": str(destination / "handoff.json"),
+                "handoff_md": str(destination / "handoff.md"),
                 "status": "ALREADY_EXPORTED"}
-    destination.mkdir()
-    (destination / payload_names[0]).write_text(json_body, encoding="utf-8")
-    (destination / payload_names[1]).write_text(markdown_body, encoding="utf-8")
-    (destination / "COMPLETE.json").write_text(json.dumps({
-        "sha256": hashlib.sha256(json_body.encode("utf-8")).hexdigest(),
-        "status": "COMPLETE_DRAFT_ONLY"
-    }), encoding="utf-8")
-    return {"handoff_json": str(destination / payload_names[0]),
-            "handoff_md": str(destination / payload_names[1]),
+    if destination.exists() or destination.is_symlink():
+        return check_existing()
+    tmp = Path(tempfile.mkdtemp(prefix=".staging-", dir=export_root))
+    try:
+        for name, body in expected.items():
+            (tmp / name).write_bytes(body)
+        (tmp / "COMPLETE.json").write_text(json.dumps({
+            "sha256": json_hash, "markdown_sha256": md_hash,
+            "status": "COMPLETE_DRAFT_ONLY"
+        }), encoding="utf-8")
+        try:
+            os.rename(tmp, destination)
+        except OSError:
+            if destination.exists() or destination.is_symlink():
+                return check_existing()
+            raise
+    finally:
+        if tmp.exists():
+            shutil.rmtree(tmp)
+    return {"handoff_json": str(destination / "handoff.json"),
+            "handoff_md": str(destination / "handoff.md"),
             "status": "EXPORTED_DRAFT_ONLY"}

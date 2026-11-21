@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Protocol
 
-_SHA = re.compile(r"[0-9a-f]{64}\\Z")
+_SHA = re.compile(r"[0-9a-f]{64}\Z")
 
 @dataclass(frozen=True)
 class DependencyEvidence:

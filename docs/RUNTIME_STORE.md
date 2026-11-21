@@ -26,3 +26,19 @@ pdrw-orch schedule inspect --project-id EXAMPLE --plan-id demo-research-001
 Schema, persistence, idempotency and restart-fail-closed behavior can be tested in GitHub CI. **Real operator-machine acceptance remains pending**: PD-RW-Agent RC must be installed and its private project map must contain an authorized project. That test requires the user's machine; GitHub runners cannot inspect it.
 
 This private runtime DB is an *operational queue*, not a second source of scientific truth. If a future engine needs more complex durable execution, compare adopting LangGraph's persistence or another maintained runner instead of expanding a duplicate job supervisor here.
+
+## Host dependency-review port (v0.3, **not** real execution)
+
+A downstream task with dependencies remains blocked unless an in-process
+`DependencyReviewPort` is injected by a trusted host, returning source-linked
+receipt references and artifact hashes for **every** upstream dependency.
+The built-in CLI does not provide this port and cannot bypass the block.
+The port's stub tests prove API/metadata behavior only; they do not prove a
+real host or scientific evidence is trustworthy.
+
+An accepted dependency review is stored as a pointer on the existing operational
+`tasks` table, **not** a duplicate scientific Run ledger. Old SQLite databases
+are migrated by adding one nullable column. Reserving a task still returns
+`INTENT_UNCERTAIN_NO_DISPATCH`; it does not start an Agent, grant permission
+or allow blind restart. A real host must verify actual process state and original
+PD-RW operation receipts before authorizing any execution.
