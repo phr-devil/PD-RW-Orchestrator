@@ -51,7 +51,7 @@ def test_immutable_stage_conflict_never_overwrites(tmp_path):
     e = env(tmp_path)
     stage_plan("plan1", plan(), environment=e)
     changed = (TaskPacket(task_id="A", project_id="P19", task_type="discovery",
-                          objective="Different task"), plan()[1])
+                          objective="Different task", idempotency_key="A-stable"), plan()[1])
     with pytest.raises(ValueError, match="PLAN_ID_CONFLICT"):
         stage_plan("plan1", changed, environment=e)
     assert len(inspect_plan("P19", "plan1", environment=e)["tasks"]) == 2
