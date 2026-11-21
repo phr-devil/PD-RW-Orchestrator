@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Candidate Next Action Decision",
+  "title": "Candidate Next Action Decision v1.1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,11 +18,13 @@
     "execution_authorized",
     "can_auto_dispatch",
     "author_decision_required_for_effects",
-    "next"
+    "next",
+    "authorization_status",
+    "next_task"
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "project_id": {
       "type": "string"
@@ -39,7 +41,8 @@
         "REQUEST_AUTHOR_DECISION",
         "RECONCILE",
         "HOLD",
-        "READY_FOR_NEXT_STAGE"
+        "READY_FOR_NEXT_STAGE",
+        "VERIFY_EXISTING_SCOPE"
       ]
     },
     "reason_codes": {
@@ -86,6 +89,18 @@
     },
     "next": {
       "type": "string"
+    },
+    "authorization_status": {
+      "enum": [
+        "DENIED",
+        "SCOPE_NOT_YET_VERIFIED",
+        "EXISTING_GRANT_VERIFIED",
+        "NEW_GRANT_REQUIRED",
+        "NOT_REQUIRED_FOR_PROPOSAL"
+      ]
+    },
+    "next_task": {
+      "$ref": "next-task.schema.json"
     }
   }
 }
