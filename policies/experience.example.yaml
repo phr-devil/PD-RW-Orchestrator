@@ -1,0 +1,10 @@
+schema_version: "1.0"
+rules:
+  - id: EXP-TEMPORAL-EXAMPLE
+    level: experience
+    source: experience_example
+    task_types: [experiment_design]
+    text: "For deployable online prediction, test whether event anchoring uses only available prefix information."
+    evidence_refs: []
+    conditions: ["online deployment", "time-indexed sensor data"]
+# Experience never has deny_effects and cannot promote itself to a requirement.

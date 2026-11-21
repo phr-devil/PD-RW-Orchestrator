@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ResultPacket v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "agent_id",
+    "status",
+    "scientific_verified"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "DEMO_ONLY",
+        "NOT_CONNECTED",
+        "BLOCKED_AUTH",
+        "BLOCKED_POLICY",
+        "BLOCKED_DEPENDENCY",
+        "FAILED",
+        "NEEDS_REVIEW",
+        "COMPLETED"
+      ]
+    },
+    "scientific_verified": {
+      "type": "boolean"
+    },
+    "output_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "details": {
+      "type": "string"
+    }
+  }
+}

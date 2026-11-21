@@ -1,0 +1,44 @@
+schema_version: "1.0"
+rules:
+  - id: ALG-IMPORTANCE
+    level: must_consider
+    source: user_example
+    task_types: [discovery, hypothesis]
+    text: "Prefer a consequential, verifiable research question with a concrete closest-prior-work delta."
+  - id: ALG-BASELINE
+    level: must_consider
+    source: user_example
+    task_types: [experiment_design, code_experiment, analysis]
+    text: "Consider a strong simple baseline with matched observation, grouping and evaluation units; cite an existing valid Run when possible."
+  - id: ALG-EVIDENCE
+    level: must_consider
+    source: user_example
+    task_types: [experiment_design, analysis, review]
+    text: "Distinguish illegal information, unsupported labels, split leakage, poor training, and a valid negative premise; do not equate them."
+  - id: ALG-DECISIVE
+    level: recommendation
+    source: user_example
+    task_types: [experiment_design, code_experiment]
+    text: "Favor the least-cost legal probe that materially changes the decision over unbounded model tuning."
+  - id: ALG-PIVOT
+    level: must_consider
+    source: user_example
+    task_types: [analysis, review]
+    text: "A negative pilot does not automatically terminate the whole research line; consider other legally testable premises and narrower contributions."
+  - id: ALG-PAPER-ROUTE
+    level: recommendation
+    source: user_example
+    task_types: [analysis, review]
+    text: "When a credible contribution exists, prioritize its missing independent evidence instead of endless tuning."
+  - id: ALG-NO-WRITING
+    level: requirement
+    source: user_example
+    task_types: ["*"]
+    text: "Do not schedule manuscript writing, submissions or publication actions without separate original user authorization."
+    deny_effects: [manuscript_write, submission]
+  - id: ALG-CONTEXT
+    level: recommendation
+    source: user_example
+    task_types: ["*"]
+    text: "Load only applicable rules and evidence, reuse verified prior work, and avoid repeated reads or redundant agent calls."
+# This is a template, NOT authenticated user instruction and NOT a copy of PD-RW.

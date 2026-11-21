@@ -1,0 +1,32 @@
+schema_version: "1.0"
+agents:
+  - id: mock-discovery
+    adapter: mock
+    capabilities: [discovery]
+    ready: true
+    priority: 10
+  - id: mock-analysis
+    adapter: mock
+    capabilities: [analysis]
+    ready: true
+    priority: 10
+  - id: arc
+    adapter: arc
+    capabilities: [discovery, literature, hypothesis]
+    ready: false
+    priority: 20
+  - id: rdagent
+    adapter: rdagent
+    capabilities: [hypothesis, experiment_design, code_experiment]
+    ready: false
+    priority: 20
+  - id: aide
+    adapter: aide
+    capabilities: [code_experiment, optimization]
+    ready: false
+    priority: 20
+  - id: host-agent
+    adapter: host
+    capabilities: [review, hypothesis, code_experiment]
+    ready: false
+    priority: 20

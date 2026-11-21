@@ -1,0 +1,10 @@
+schema_version: "1.0"
+profile_id: sensor-research
+research_domains: [flexible_electronics, sensors, robotics, embodied_ai]
+publication_goal: "Credible Q1-aspirational/Q2+-plausible contribution; not a journal guarantee"
+execution_preferences:
+  prefer_reuse_valid_runs: true
+  prefer_decision_relevant_probe: true
+  avoid_redundant_agent_calls: true
+  ordinary_in_scope_dev_autonomy: true
+# Preferences are suggestions; original PD-RW decisions and host permission prevail.
