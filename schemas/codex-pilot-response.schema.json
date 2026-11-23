@@ -11,13 +11,10 @@
   ],
   "properties": {
     "summary": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000
+      "type": "string"
     },
     "observations": {
       "type": "array",
-      "maxItems": 8,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -28,24 +25,18 @@
         ],
         "properties": {
           "claim": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1000
+            "type": "string"
           },
           "source_refs": {
             "type": "array",
-            "maxItems": 8,
             "items": {
-              "type": "string",
-              "maxLength": 200
+              "type": "string"
             }
           },
           "limitations": {
             "type": "array",
-            "maxItems": 8,
             "items": {
-              "type": "string",
-              "maxLength": 400
+              "type": "string"
             }
           }
         }
@@ -53,18 +44,14 @@
     },
     "limitations": {
       "type": "array",
-      "maxItems": 8,
       "items": {
-        "type": "string",
-        "maxLength": 400
+        "type": "string"
       }
     },
     "next_actions": {
       "type": "array",
-      "maxItems": 5,
       "items": {
-        "type": "string",
-        "maxLength": 400
+        "type": "string"
       }
     }
   }

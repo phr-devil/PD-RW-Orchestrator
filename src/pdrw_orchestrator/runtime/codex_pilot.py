@@ -6,7 +6,6 @@ external subprocess. Unknown attempts remain unresolved; no implicit retries.
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 
 from pdrw_orchestrator.adapters.codex import (
@@ -131,7 +130,8 @@ def run_codex_pilot(
         return {
             "status": invocation["status"],
             "mode": "EXTERNAL_CODEX_READONLY_SYNTHETIC_PILOT",
-            "model_invoked": True,
+            "model_invocation_attempted": True,
+            "model_invoked_confirmed": invocation["status"] == "STRUCTURED_OUTPUT_RECEIVED",
             "project_id": task.project_id,
             "plan_id": plan_id,
             "attempt_id": attempt_id,

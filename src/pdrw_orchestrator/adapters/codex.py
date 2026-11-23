@@ -11,12 +11,12 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
 _MAX_OUTPUT_BYTES = 64 * 1024
 _REQUIRED_FLAGS = (
@@ -174,13 +174,17 @@ def run_readonly_pilot(
         report = json.loads(output_path.read_text(encoding="utf-8"))
         schema = json.loads(schema_file.read_text(encoding="utf-8"))
         validate(instance=report, schema=schema)
-    except (ValueError, UnicodeError, OSError) as exc:
+    except (ValueError, UnicodeError, OSError, ValidationError, TypeError):
         return {"status": "INVALID_MACHINE_READABLE_OUTPUT", "returncode": 0,
                 "report": None}
-    except Exception as exc:
-        # jsonschema.ValidationError is intentionally mapped to a fail-closed status
-        # without exposing raw agent output.
-        return {"status": "INVALID_MACHINE_READABLE_OUTPUT", "returncode": 0,
-                "report": None}
+    # Model-output JSON schema uses a portable strict subset. Check limits
+    # locally rather than relying on provider support for maxItems/maxLength.
+    if (len(report["summary"]) > 2000 or len(report["observations"]) > 8
+            or len(report["limitations"]) > 8 or len(report["next_actions"]) > 5):
+        return {"status": "INVALID_MACHINE_READABLE_OUTPUT", "returncode": 0, "report": None}
+    for item in report["observations"]:
+        if (not item["claim"].strip() or len(item["claim"]) > 1000 or
+                len(item["source_refs"]) > 8 or len(item["limitations"]) > 8):
+            return {"status": "INVALID_MACHINE_READABLE_OUTPUT", "returncode": 0, "report": None}
     return {"status": "STRUCTURED_OUTPUT_RECEIVED", "returncode": 0,
             "report": report}
