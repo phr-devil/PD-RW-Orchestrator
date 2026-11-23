@@ -44,7 +44,7 @@ def test_codex_probe_has_no_model_call(monkeypatch):
             return SimpleNamespace(stdout="codex-cli 1.0\n", stderr="", returncode=0)
         return SimpleNamespace(
             stdout="--output-schema --output-last-message --sandbox "
-                   "--ignore-user-config --ephemeral\n",
+                   "--ignore-user-config --ignore-rules --ephemeral\n",
             stderr="", returncode=0,
         )
 
@@ -128,7 +128,9 @@ def test_end_to_end_simulated_codex_result_and_one_attempt(tmp_path, monkeypatch
     first = codex_pilot.run_codex_pilot(**kw)
     assert first["status"] == "STRUCTURED_OUTPUT_RECEIVED"
     assert first["model_invocation_attempted"] is True
-    assert first["model_invoked_confirmed"] is True
+    assert first["model_invoked_confirmed"] is False
+    assert first["structured_cli_output_received"] is True
+    assert first["external_model_usage_verified"] is False
     assert first["decision_type"] == "INDEPENDENT_REVIEW"
     assert first["science_validated"] is False
     assert first["execution_authorized_for_research"] is False
@@ -137,6 +139,12 @@ def test_end_to_end_simulated_codex_result_and_one_attempt(tmp_path, monkeypatch
     report = json.loads(Path(files["handoff_json"]).read_text(encoding="utf-8"))
     assert report["result"]["scientific_assessment"]["effective_claim_status"] == "NOT_ASSESSED"
     assert report["result"]["agent_id"] == "codex-local"
+    assert report["previous_execution"]["origin"] == "LOCAL_SUBPROCESS_OBSERVATION"
+    assert report["previous_execution"]["dispatch_attempted"] is True
+    assert report["next_dispatch_performed"] is False
+    assert report["dispatch_scope"] == "NEXT_TASK_ONLY"
+    assert Path(first["host_receipt_ref"]).is_file()
+    assert report["previous_execution"]["scientific_completion_verified"] is False
     assert "independently" in report["next_task"]["objective"].lower()
     assert Path(files["handoff_md"]).is_file()
     assert len(invoked) == 1
@@ -204,3 +212,76 @@ def test_invalid_worktree_cannot_be_user_supplied():
     assert codex.fixture_root().is_dir()
     assert "codex-pilot" == codex.fixture_root().name
     assert codex.verify_fixture() == codex.fixture_root()
+
+
+def test_fixture_bytes_tampered_fail_closed(monkeypatch):
+    original = Path.read_bytes
+    fixture = codex.fixture_root()
+    def fake_read(path):
+        if path == fixture / "sensor_example.py":
+            return b"private-data-substituted-into-public-synthetic-fixture"
+        return original(path)
+    monkeypatch.setattr(Path, "read_bytes", fake_read)
+    with pytest.raises(ValueError, match="PILOT_FIXTURE_HASH_MISMATCH"):
+        codex.verify_fixture()
+
+
+def test_extra_unlisted_fixture_file_rejected_without_writing_files(monkeypatch, tmp_path):
+    original = Path.iterdir
+    fixture = codex.fixture_root()
+    def forged_listing(path):
+        entries = list(original(path))
+        if path == fixture:
+            return iter(entries + [tmp_path / "extra.txt"])
+        return iter(entries)
+    monkeypatch.setattr(Path, "iterdir", forged_listing)
+    with pytest.raises(ValueError, match="PILOT_FIXTURE_ALLOWLIST_MISMATCH"):
+        codex.verify_fixture()
+
+
+def test_bad_policy_preflight_rejects_before_any_subprocess(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDRW_ORCH_RUNTIME_DIR", str(tmp_path / "runtime"))
+    monkeypatch.setattr(codex_pilot, "probe_codex", lambda arg: codex.CodexProbe(
+        "CLI_CAPABILITY_PROBE_OK", str(Path(sys.executable)), "fake", True))
+    monkeypatch.setattr(codex_pilot, "run_readonly_pilot", lambda **kw:
+                        (_ for _ in ()).throw(AssertionError("model should not be called")))
+    invalid = tmp_path / "wrong-policy.yaml"
+    invalid.write_text("schema_version: '1.0'\nrules: [corrupt-value]\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        codex_pilot.run_codex_pilot(
+            plan_id="bad-policy", attempt_id="test-attempt",
+            codex_bin=str(Path(sys.executable)), policy_path=invalid,
+            registry_path=ROOT / "configs/agents.example.yaml")
+    assert not (tmp_path / "runtime").exists()
+
+
+def test_bad_registry_preflight_rejects_before_dispatch(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDRW_ORCH_RUNTIME_DIR", str(tmp_path / "runtime"))
+    monkeypatch.setattr(codex_pilot, "probe_codex", lambda arg: codex.CodexProbe(
+        "CLI_CAPABILITY_PROBE_OK", str(Path(sys.executable)), "fake", True))
+    monkeypatch.setattr(codex_pilot, "run_readonly_pilot", lambda **kw:
+                        (_ for _ in ()).throw(AssertionError("model should not be called")))
+    invalid = tmp_path / "bad-registry.yaml"
+    invalid.write_text("agents: unknown\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        codex_pilot.run_codex_pilot(
+            plan_id="bad-registry", attempt_id="test-attempt",
+            codex_bin=str(Path(sys.executable)),
+            policy_path=ROOT / "policies/user/research-guidance.example.yaml",
+            registry_path=invalid)
+    assert not (tmp_path / "runtime").exists()
+
+
+def test_invalid_string_limits_refused_by_codex_even_if_schema_is_valid(tmp_path, monkeypatch):
+    monkeypatch.setattr(codex, "resolve_codex_executable", lambda _: Path(sys.executable))
+    long = fake_report()
+    long["observations"][0]["source_refs"] = ["x" * 300]
+    def bad_result(args, **kw):
+        Path(args[args.index("--output-last-message") + 1]).write_text(
+            json.dumps(long), encoding="utf-8")
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(codex.subprocess, "run", bad_result)
+    result = codex.run_readonly_pilot(
+        executable=str(Path(sys.executable)),
+        output_path=tmp_path / "out.json", wall_seconds=120)
+    assert result["status"] == "INVALID_MACHINE_READABLE_OUTPUT"

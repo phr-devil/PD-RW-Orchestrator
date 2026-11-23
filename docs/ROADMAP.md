@@ -12,3 +12,5 @@
 - **M4:** paired single vs multi-Agent and with vs without experience evaluation, fixed compute/model budget; measure scientific error, artifact quality, cost and interventions.
 
 Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning or use Agent self-assessments as permission/scientific truth.
+
+- **R1 correctness (current):** fixed synthetic fixture hash/allowlist, preflight before subprocess, separate prior subprocess observation from next-task dispatch, prevention of repeated review loops, and failure-first decision handling. CI remains mock-provider only.

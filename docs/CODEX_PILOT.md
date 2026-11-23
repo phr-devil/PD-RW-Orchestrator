@@ -83,3 +83,24 @@ budget is **not** enforced; the real provider may incur charges.
 Upstream specification:
 [Codex CLI reference](https://learn.chatgpt.com/docs/cli/reference),
 [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).
+
+## R1 correctness hardening
+
+- Exact public fixture allowlist and pinned SHA-256 for `README.md` and `sensor_example.py`.
+  Any changed/extra file stops the pilot **before** a model call. An additional check
+  occurs immediately before the subprocess; a true read-visibility boundary still
+  requires an isolated OS account/container/VM.
+- Preflight checks response schema, compiles policy and loads Agent Registry
+  **before** creating a one-shot intent. Broken policy/registry/response schema
+  must not cause paid model calls.
+- Uses `--ignore-rules` as well as `--ignore-user-config` to reduce inherited
+  local agent behavior. A compatible CLI must expose both flags in `exec --help`.
+- Every attempted subprocess records a bounded `host-execution.json` before the
+  Agent output is normalized. The Handoff's `previous_execution` field records
+  locally observed process status. `dispatch_performed=false` is a *legacy*
+  advisory field referring **only to the proposed next task**; the v0.4.1
+  bundle adds `next_dispatch_performed=false` and `dispatch_scope=NEXT_TASK_ONLY`.
+- A valid JSON result is **not** proof of a paid model call: the runtime returns
+  `structured_cli_output_received=true` and always leaves
+  `model_invoked_confirmed=false` and `external_model_usage_verified=false`.
+  Provider usage is still not independently measured; no automatic retries.

@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.4 / M2-Pilot code: opt-in real Codex CLI subprocess limited to a public synthetic fixture; actual Windows operator acceptance pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.4.1 / R1 correctness hardening: synthetic-only Codex adapter, preflight and conservative execution receipts; real Windows operator acceptance pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ## Mission
 
