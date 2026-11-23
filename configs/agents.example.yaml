@@ -30,3 +30,8 @@ agents:
     capabilities: [review, hypothesis, code_experiment]
     ready: false
     priority: 20
+  - id: codex-local
+    adapter: codex
+    capabilities: [review, analysis]
+    ready: false
+    priority: 30

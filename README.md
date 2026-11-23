@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.3 task-transition and read-only source bridge; no live external-agent execution.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.4 / M2-Pilot code: opt-in real Codex CLI subprocess limited to a public synthetic fixture; actual Windows operator acceptance pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ## Mission
 
@@ -53,6 +53,26 @@ pdrw-orch advise --task-file examples/decision-task.example.json --result-file e
 
 Returns a normalized untrusted result, conservative next-action recommendation, concise Agent task draft and six-section ChatGPT handoff report. Add `--save` only with a configured private `PDRW_ORCH_RUNTIME_DIR` to store `handoff.json` / `handoff.md` locally. **This does not run external Agents, verify science, or grant execution permission.** See [decision contract](docs/DECISION_AND_HANDOFF.md).
 
+### Codex CLI synthetic read-only pilot (operator opt-in only)
+
+~~~powershell
+# First, no-cost capability check (no model call)
+pdrw-orch codex probe --codex-bin "D:\\tools\\codex.exe"
+
+# Only in an isolated environment and only after explicit external-model consent
+$env:PDRW_ORCH_RUNTIME_DIR = "D:\\private-orchestrator-runtime"
+pdrw-orch codex pilot --plan-id m2pilot-001 --attempt-id attempt-001 --codex-bin "D:\\tools\\codex.exe" --execute --ack-external-model
+~~~
+
+The pilot reads only the synthetic fixture in `examples/codex-pilot/`, records a
+one-shot intent, and produces the existing untrusted-result → next-action →
+ChatGPT handoff bundle. It never uses real research data or authorizations.
+**The CLI read-only sandbox alone cannot guarantee strict file-visibility or
+network isolation; use a disposable environment.** CI mocks the Codex executable;
+a real Windows invocation is not yet verified.
+
+See [Codex pilot and isolation limitations](docs/CODEX_PILOT.md).
+
 ### Core design
 
 1. Task DAG and deterministic routing using declared capability plus confirmed adapter readiness.
@@ -70,6 +90,7 @@ Returns a normalized untrusted result, conservative next-action recommendation, 
 - [PD-RW-Agent bridge](docs/PDRW_BRIDGE.md)
 - [Operational intent store](docs/RUNTIME_STORE.md)
 - [Decision engine and ChatGPT handoff](docs/DECISION_AND_HANDOFF.md)
+- [Codex CLI pilot (opt-in synthetic fixture)](docs/CODEX_PILOT.md)
 - [Next-task transition and scope semantics](docs/TASK_TRANSITION.md)
 - [User guide](docs/USER_GUIDE.md)
 - [External adapter contract](docs/ADAPTERS.md)

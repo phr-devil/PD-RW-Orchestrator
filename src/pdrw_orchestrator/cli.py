@@ -6,6 +6,8 @@ import sqlite3
 from pathlib import Path
 
 from .agent_result import normalize_result
+from .adapters.codex import probe_codex
+from .runtime.codex_pilot import run_codex_pilot
 from .controller import run_demo
 from .decision import decide_next
 from .instruction import build_bundle
@@ -49,7 +51,7 @@ def _bounded_json_file(path: str, label: str) -> dict:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="pdrw-orch", description="PD-RW operational orchestrator (mock-only execution)")
+    parser = argparse.ArgumentParser(prog="pdrw-orch", description="PD-RW operational orchestrator (opt-in synthetic Codex pilot)")
     parser.add_argument("--agents", default=str(_repository_root() / "configs/agents.example.yaml"))
     parser.add_argument("--policy", default=str(_repository_root() / "policies/user/research-guidance.example.yaml"))
     commands = parser.add_subparsers(dest="command", required=True)
@@ -74,6 +76,15 @@ def build_parser() -> argparse.ArgumentParser:
     schedule.add_argument("--attempt-id")
     schedule.add_argument("--with-pdrw", action="store_true", help="Opt-in read-only source recovery comparison")
     schedule.add_argument("--python", dest="pdrw_python", default=None)
+    codex = commands.add_parser("codex", help="Opt-in, synthetic-fixture-only Codex CLI pilot")
+    codex.add_argument("action", choices=["probe", "pilot"])
+    codex.add_argument("--codex-bin", default=None, help="Operator-specified native Codex executable")
+    codex.add_argument("--plan-id")
+    codex.add_argument("--attempt-id")
+    codex.add_argument("--execute", action="store_true",
+                       help="Explicitly allow one real model subprocess for the synthetic fixture")
+    codex.add_argument("--ack-external-model", action="store_true",
+                       help="Acknowledge external model transmission and possible provider charges")
     commands.add_parser("demo")
     advice = commands.add_parser("advise", help="Build an offline decision and ChatGPT handoff; no dispatch")
     advice.add_argument("--task-file", required=True)
@@ -111,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.command == "doctor":
-            result = {"mode": "MOCK_EXECUTION_ONLY", "external_agents_ready": False,
+            result = {"mode": "EXTERNAL_CODEX_PILOT_OPT_IN_ONLY", "external_agents_ready": False,
                       "trusted_host_authorizer": False, "real_science_measured": False,
                       "pdrw": pdrw_status()}
         elif args.command == "agents":
@@ -137,6 +148,21 @@ def main(argv: list[str] | None = None) -> int:
             result = inspect_resume(args.project_id, python_executable=args.pdrw_python)
         elif args.command == "schedule":
             result = _schedule_action(args)
+        elif args.command == "codex":
+            if args.action == "probe":
+                if args.execute or args.ack_external_model or args.plan_id or args.attempt_id:
+                    raise ValueError("CODEX_PROBE_DOES_NOT_ACCEPT_EXECUTION_FLAGS")
+                result = probe_codex(args.codex_bin).to_dict()
+            else:
+                if not (args.execute and args.ack_external_model):
+                    raise ValueError("EXPLICIT_MODEL_OPT_IN_REQUIRED")
+                if not args.plan_id or not args.attempt_id:
+                    raise ValueError("PLAN_AND_ATTEMPT_ID_REQUIRED")
+                result = run_codex_pilot(
+                    plan_id=args.plan_id, attempt_id=args.attempt_id,
+                    codex_bin=args.codex_bin,
+                    policy_path=args.policy, registry_path=args.agents,
+                )
         elif args.command == "demo":
             report = run_demo(demo_plan(), load_agents(args.agents), load_policy(args.policy))
             result = report.to_dict()
@@ -157,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             raise ValueError("command not implemented")
         print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.command == "codex":
+            return 0 if result.get("status") in ("CLI_CAPABILITY_PROBE_OK", "STRUCTURED_OUTPUT_RECEIVED") else 3
         return 0 if result.get("bridge_status") in (None, "SOURCE_REVIEW_ONLY") else 3
     except (OSError, ValueError, TypeError, sqlite3.Error) as exc:
         print(json.dumps({"status": "ERROR", "reason": str(exc)}, ensure_ascii=False))

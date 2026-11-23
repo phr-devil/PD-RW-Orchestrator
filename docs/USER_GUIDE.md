@@ -22,3 +22,16 @@ Other existing commands remain available:
 - `pdrw-orch schedule mark-uncertain ...` (test one-time intent, does not execute).
 
 No live ARC/AIDE/R&D-Agent is connected; real WorkBuddy integration requires M1-C/M2 host controls.
+
+## Codex pilot (opt-in real subprocess, synthetic only)
+
+~~~powershell
+pdrw-orch codex probe --codex-bin "D:\\tools\\codex.exe"
+$env:PDRW_ORCH_RUNTIME_DIR = "D:\\private-orchestrator-runtime"
+pdrw-orch codex pilot --plan-id m2pilot-001 --attempt-id attempt-001 --codex-bin "D:\\tools\\codex.exe" --execute --ack-external-model
+~~~
+
+Only run this with a locally installed, authenticated native CLI and in an
+isolated environment. The external model may incur usage charges. No real
+scientific data, live agent chaining or write-enabled task is supported.
+See [CODEX_PILOT.md](CODEX_PILOT.md).
