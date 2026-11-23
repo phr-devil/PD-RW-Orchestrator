@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Codex synthetic fixture pilot Task Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project_id",
+    "task_id",
+    "objective",
+    "read_only_fixture"
+  ],
+  "properties": {
+    "project_id": {
+      "const": "PILOT"
+    },
+    "task_id": {
+      "const": "CODEX-READ-001"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "read_only_fixture": {
+      "const": true
+    }
+  }
+}
