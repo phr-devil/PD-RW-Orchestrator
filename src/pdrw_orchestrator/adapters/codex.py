@@ -7,6 +7,7 @@ security boundary. Operators should run in an isolated environment.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -19,9 +20,15 @@ from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 
 _MAX_OUTPUT_BYTES = 64 * 1024
+# Pinned contents of the public synthetic pilot, NOT arbitrary repo files.
+# Calculated on the exact UTF-8 bytes of the accepted fixture files.
+_ALLOWED_FIXTURE_SHA256 = {
+    "README.md": "1099ad13f6d0de6d253324a34616dd70cb389e25e74fe14c1ee8c8096b7de65f",
+    "sensor_example.py": "8586e4ed8c8302d6cbdae34d3328683c096abdab723dafe6329c598636caf2c6",
+}
 _REQUIRED_FLAGS = (
     "--output-schema", "--output-last-message", "--sandbox",
-    "--ignore-user-config", "--ephemeral",
+    "--ignore-user-config", "--ignore-rules", "--ephemeral",
 )
 
 
@@ -101,12 +108,14 @@ def verify_fixture() -> Path:
     root = Path(__file__).resolve().parents[3]
     if fixture.parent != root / "examples":
         raise ValueError("PILOT_FIXTURE_PATH_UNEXPECTED")
-    files = list(fixture.rglob("*"))
-    if not files or len(files) > 12:
-        raise ValueError("PILOT_FIXTURE_SHAPE_INVALID")
-    for path in files:
+    entries = list(fixture.iterdir())
+    if set(p.name for p in entries) != set(_ALLOWED_FIXTURE_SHA256):
+        raise ValueError("PILOT_FIXTURE_ALLOWLIST_MISMATCH")
+    for path in entries:
         if path.is_symlink() or not path.is_file() or path.stat().st_size > 24 * 1024:
             raise ValueError("PILOT_FIXTURE_FILE_UNSAFE")
+        if hashlib.sha256(path.read_bytes()).hexdigest() != _ALLOWED_FIXTURE_SHA256[path.name]:
+            raise ValueError("PILOT_FIXTURE_HASH_MISMATCH")
     return fixture
 
 
@@ -140,9 +149,12 @@ def run_readonly_pilot(
     output_path = output_path.resolve()
     if not output_path.parent.is_dir() or output_path.exists() or output_path.is_symlink():
         raise ValueError("PILOT_OUTPUT_PATH_UNAVAILABLE")
+    # A second integrity check immediately before attempting the subprocess.
+    # This does not replace VM-level isolation or prevent every TOCTOU race.
+    verify_fixture()
     args = [
         str(path), "exec",
-        "--ephemeral", "--ignore-user-config",
+        "--ephemeral", "--ignore-user-config", "--ignore-rules",
         "--sandbox", "read-only", "--ask-for-approval", "never",
         "--skip-git-repo-check", "-C", str(fixture),
         "--output-schema", str(schema_file),
@@ -179,12 +191,16 @@ def run_readonly_pilot(
                 "report": None}
     # Model-output JSON schema uses a portable strict subset. Check limits
     # locally rather than relying on provider support for maxItems/maxLength.
-    if (len(report["summary"]) > 2000 or len(report["observations"]) > 8
+    if (not report["summary"].strip() or len(report["summary"]) > 2000 or len(report["observations"]) > 8
             or len(report["limitations"]) > 8 or len(report["next_actions"]) > 5):
         return {"status": "INVALID_MACHINE_READABLE_OUTPUT", "returncode": 0, "report": None}
     for item in report["observations"]:
         if (not item["claim"].strip() or len(item["claim"]) > 1000 or
-                len(item["source_refs"]) > 8 or len(item["limitations"]) > 8):
+                len(item["source_refs"]) > 8 or len(item["limitations"]) > 8 or
+                any(not ref.strip() or len(ref) > 200 for ref in item["source_refs"]) or
+                any(not note.strip() or len(note) > 400 for note in item["limitations"])):
             return {"status": "INVALID_MACHINE_READABLE_OUTPUT", "returncode": 0, "report": None}
+    if any(not s.strip() or len(s) > 400 for s in report["limitations"] + report["next_actions"]):
+        return {"status": "INVALID_MACHINE_READABLE_OUTPUT", "returncode": 0, "report": None}
     return {"status": "STRUCTURED_OUTPUT_RECEIVED", "returncode": 0,
             "report": report}
