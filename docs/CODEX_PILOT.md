@@ -104,3 +104,7 @@ Upstream specification:
   `structured_cli_output_received=true` and always leaves
   `model_invoked_confirmed=false` and `external_model_usage_verified=false`.
   Provider usage is still not independently measured; no automatic retries.
+
+The CRLF-normalized hash validation tolerates Windows Git line endings only;
+it rejects extra, missing, or byte-changed public fixture content. This is a
+content-integrity test, **not** an OS-level read-access or network boundary.

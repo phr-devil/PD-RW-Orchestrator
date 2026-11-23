@@ -285,3 +285,40 @@ def test_invalid_string_limits_refused_by_codex_even_if_schema_is_valid(tmp_path
         executable=str(Path(sys.executable)),
         output_path=tmp_path / "out.json", wall_seconds=120)
     assert result["status"] == "INVALID_MACHINE_READABLE_OUTPUT"
+
+
+def test_windows_crlf_checkout_preserves_fixture_integrity(monkeypatch):
+    original = Path.read_bytes
+    fixture = codex.fixture_root()
+    def to_crlf(path):
+        raw = original(path)
+        if path == fixture / "sensor_example.py":
+            return raw.replace(b"\n", b"\r\n")
+        return raw
+    monkeypatch.setattr(Path, "read_bytes", to_crlf)
+    assert codex.verify_fixture() == fixture
+
+
+def test_subprocess_returned_but_invalid_result_keeps_host_receipt(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDRW_ORCH_RUNTIME_DIR", str(tmp_path / "runtime"))
+    monkeypatch.setattr(codex_pilot, "probe_codex", lambda _: codex.CodexProbe(
+        "CLI_CAPABILITY_PROBE_OK", str(Path(sys.executable)), "synthetic", True))
+    def malformed(**kw):
+        kw["output_path"].write_text('{"summary":"partial"}', encoding="utf-8")
+        return {"status": "STRUCTURED_OUTPUT_RECEIVED", "returncode": 0,
+                "report": {"summary": "partial"}}
+    monkeypatch.setattr(codex_pilot, "run_readonly_pilot", malformed)
+    kwargs = {
+        "plan_id": "invalid-result-no-retry", "attempt_id": "attempt-001",
+        "codex_bin": str(Path(sys.executable)),
+        "policy_path": ROOT / "policies/user/research-guidance.example.yaml",
+        "registry_path": ROOT / "configs/agents.example.yaml",
+    }
+    with pytest.raises(KeyError):
+        codex_pilot.run_codex_pilot(**kwargs)
+    host_receipt = tmp_path / "runtime" / "codex-pilot" / kwargs["plan_id"] / kwargs["attempt_id"] / "host-execution.json"
+    assert host_receipt.is_file()
+    receipt = json.loads(host_receipt.read_text(encoding="utf-8"))
+    assert receipt["dispatch_attempted"] is True
+    assert receipt["scientific_completion_verified"] is False
+    assert codex_pilot.run_codex_pilot(**kwargs)["status"] == "ALREADY_RESERVED_NO_RETRY"

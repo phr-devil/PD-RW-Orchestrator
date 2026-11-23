@@ -45,3 +45,16 @@ This creates `handoff.json`, `handoff.md` and `COMPLETE.json` in a content-addre
 - First real **read-only** Agent Adapter health and bounded handoff. Until real execution control is developed, output remains DRAFT_ONLY.
 - Trusted independent science review and deterministic agent-choice acceptance against real capability measurements.
 - PD-RW-Experience source/temporal validation as an advisory input only.
+
+## R1 decision safeguards
+
+- An execution failure is classified as an *engineering/task failure* before
+  attempting to recheck author grant references. Existing source-scope status
+  remains visible and never becomes a permission.
+- A completed review does not automatically create another independent review.
+  Instead `REVIEW_OUTCOME_PENDING` targets a `human_assessment` proposal,
+  with no verified Agent, no automatic dispatch and no claim of scientific truth.
+- `SWITCH_AGENT` preserves the original task capability when searching for
+  a replacement specialist. Its proposal remains a non-dispatchable candidate.
+- Branch/attempt-specific next-task IDs prevent collisions across distinct
+  result attempts while retaining original evidence references.
