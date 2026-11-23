@@ -293,7 +293,7 @@ def test_windows_crlf_checkout_preserves_fixture_integrity(monkeypatch):
     def to_crlf(path):
         raw = original(path)
         if path == fixture / "sensor_example.py":
-            return raw.replace(b"\n", b"\r\n")
+            return raw.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
         return raw
     monkeypatch.setattr(Path, "read_bytes", to_crlf)
     assert codex.verify_fixture() == fixture
