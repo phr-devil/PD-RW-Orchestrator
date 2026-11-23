@@ -100,7 +100,8 @@ def build_chatgpt_report(task: TaskPacket, normalized: dict[str, Any],
 def build_bundle(task: TaskPacket, normalized: dict[str, Any],
                  decision: dict, guidance: GuidancePacket, *,
                  next_guidance: GuidancePacket | None = None,
-                 source_context: dict | None = None) -> dict:
+                 source_context: dict | None = None,
+                 previous_execution: dict[str, Any] | None = None) -> dict:
     return {
         "schema_version": "1.1", "mode": "ADVISORY_DRAFT_ONLY",
         "project_id": task.project_id, "task_id": task.task_id,
@@ -110,6 +111,12 @@ def build_bundle(task: TaskPacket, normalized: dict[str, Any],
         "next_guidance": (next_guidance.to_dict() if next_guidance is not None
                           else {"status": "NOT_COMPILED_FOR_NEXT_TASK"}),
         "source_context": source_context,
+        "previous_execution": previous_execution if previous_execution is not None else {
+            "origin": "NOT_CONNECTED_TO_HOST", "dispatch_attempted": False,
+            "external_model_usage_verified": False, "scientific_completion_verified": False,
+        },
+        "next_dispatch_performed": False,
+        "dispatch_scope": "NEXT_TASK_ONLY",
         "agent_instruction_draft": build_instruction(
             task, normalized, decision, guidance, next_guidance=next_guidance),
         "chatgpt_handoff_md": build_chatgpt_report(

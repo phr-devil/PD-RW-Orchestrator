@@ -6,7 +6,9 @@ external subprocess. Unknown attempts remain unresolved; no implicit retries.
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
+from jsonschema import Draft202012Validator
 
 from pdrw_orchestrator.adapters.codex import (
     probe_codex, run_readonly_pilot, verify_fixture,
@@ -21,6 +23,7 @@ from pdrw_orchestrator.registry import load_agents
 from pdrw_orchestrator.runtime.store import (
     _store_path, mark_intent_uncertain, stage_plan,
 )
+from pdrw_orchestrator.next_task import _OBJECTIVES
 
 PILOT_PROJECT_ID = "PILOT"
 PILOT_TASK_ID = "CODEX-READ-001"
@@ -92,14 +95,31 @@ def run_codex_pilot(
     policy_path: str | Path, registry_path: str | Path,
 ) -> dict:
     """Actual model invocation: caller must enforce explicit opt-in separately."""
+    # Preflight MUST finish before staging or any external/model invocation.
     verify_fixture()
+    task = pilot_task()
+    schema_path = Path(__file__).resolve().parents[3] / "schemas" / "codex-pilot-response.schema.json"
+    Draft202012Validator.check_schema(json.loads(schema_path.read_text(encoding="utf-8")))
+    rules = load_policy(policy_path)
+    agents = load_agents(registry_path)
+    guidance = compile_guidance(task, rules)
+    if guidance.denied_effects:
+        raise ValueError("PILOT_POLICY_DENIES_REQUESTED_EFFECT")
+    for task_type, capability, objective in _OBJECTIVES.values():
+        preview = TaskPacket(
+            task_id="PREFLIGHT", project_id=PILOT_PROJECT_ID,
+            task_type=task_type, capability=capability, objective=objective,
+        )
+        compile_guidance(preview, rules)
+    # Checks absolute runtime directory and overlap with protected roots without
+    # writing a DB or committing the execution intent.
+    _store_path(create=False)
     probe = probe_codex(codex_bin)
     if not probe.supported or not probe.executable:
         return {"status": "NOT_CONNECTED", "probe": probe.to_dict(),
                 "model_invoked": False}
-    task = pilot_task()
     # This is intentionally the only possible task; it has zero project effects.
-    stage = stage_plan(plan_id, (task,))
+    stage_plan(plan_id, (task,))
     intent = mark_intent_uncertain(task.project_id, plan_id, task.task_id, attempt_id)
     if intent["status"] != "INTENT_UNCERTAIN_NO_DISPATCH":
         return {"status": "ALREADY_RESERVED_NO_RETRY", "model_invoked": False,
@@ -118,14 +138,37 @@ def run_codex_pilot(
             output_path=output_path,
             wall_seconds=task.budget["max_wall_seconds"],
         )
+        # Host observation is separate from Agent claims and scientific truth.
+        # A return code alone cannot prove a model was billed or a claim is valid.
+        if output_path.is_file() and output_path.stat().st_size <= 64 * 1024:
+            output_hash = hashlib.sha256(output_path.read_bytes()).hexdigest()
+        else:
+            output_hash = None
+        previous_execution = {
+            "origin": "LOCAL_SUBPROCESS_OBSERVATION",
+            "project_id": task.project_id,
+            "task_id": task.task_id,
+            "attempt_id": attempt_id,
+            "dispatch_attempted": True,
+            "process_returncode": invocation.get("returncode"),
+            "outcome": invocation["status"],
+            "structured_output_sha256": output_hash,
+            "external_model_usage_verified": False,
+            "scientific_completion_verified": False,
+        }
+        # Save bounded operational metadata before result normalization; failed
+        # parsing must never erase the fact a local process was attempted.
+        (run_dir / "host-execution.json").write_text(
+            json.dumps(previous_execution, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8")
         payload = _readout_to_result(invocation, task, attempt_id, output_path)
         normalized = normalize_result(payload, task)
-        rules = load_policy(policy_path)
-        guidance = compile_guidance(task, rules)
-        decision = decide_next(task, normalized, guidance, load_agents(registry_path))
+        decision = decide_next(task, normalized, guidance, agents)
         next_guidance = compile_guidance(policy_task_for_proposal(decision["next_task"]), rules)
-        bundle = build_bundle(task, normalized, decision, guidance,
-                              next_guidance=next_guidance)
+        bundle = build_bundle(
+            task, normalized, decision, guidance,
+            next_guidance=next_guidance, previous_execution=previous_execution,
+        )
         saved = save_bundle(bundle)
         return {
             "status": invocation["status"],
@@ -137,10 +180,8 @@ def run_codex_pilot(
             "attempt_id": attempt_id,
             "codex_version_probed": probe.version,
             "process_returncode": invocation.get("returncode"),
-            "structured_output_sha256": (
-                hashlib.sha256(output_path.read_bytes()).hexdigest()
-                if output_path.is_file() else None
-            ),
+            "structured_output_sha256": output_hash,
+            "host_receipt_ref": str(run_dir / "host-execution.json"),
             "private_report": saved,
             "decision_type": decision["decision_type"],
             "next_task": decision["next_task"],
