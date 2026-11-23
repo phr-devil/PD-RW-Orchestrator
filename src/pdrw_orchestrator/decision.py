@@ -10,7 +10,7 @@ from .registry import AgentSpec
 DECISION_TYPES = frozenset({
     "CONTINUE_SAME_AGENT", "SWITCH_AGENT", "INDEPENDENT_REVIEW",
     "REVISE_PLAN", "REQUEST_AUTHOR_DECISION", "VERIFY_EXISTING_SCOPE",
-    "RECONCILE", "HOLD", "READY_FOR_NEXT_STAGE",
+    "RECONCILE", "HOLD", "READY_FOR_NEXT_STAGE", "REVIEW_OUTCOME_PENDING",
 })
 AUTH_STATES = frozenset({"SCOPE_NOT_YET_VERIFIED", "DENIED", "EXISTING_GRANT_VERIFIED",
                           "NEW_GRANT_REQUIRED", "NOT_REQUIRED_FOR_PROPOSAL"})
@@ -66,25 +66,32 @@ def decide_next(
     reasons: list[str]
     if blocker:
         kind, code = blocker
+        if kind == "INDEPENDENT_REVIEW" and task.task_type in ("review", "human_assessment"):
+            kind = "REVIEW_OUTCOME_PENDING"
         reasons = [code]
     elif guidance.denied_effects:
         kind, reasons = "HOLD", ["POLICY_EFFECT_DENIED"]
-    elif task.required_effects:
-        # Existing H6/DEV authorization may already cover this operation.
-        # The missing HOST check is NOT a request for renewed author approval.
-        kind, reasons = "VERIFY_EXISTING_SCOPE", ["ORIGINAL_SCOPE_NOT_YET_VERIFIED"]
     elif status in ("DEMO_ONLY", "BLOCKED_DEPENDENCY"):
         kind, reasons = "RECONCILE", ["MOCK_RESULT_NO_SCIENCE" if status == "DEMO_ONLY" else "DEPENDENCY_NOT_RESOLVED"]
     elif status in ("BLOCKED_AUTH", "BLOCKED_POLICY"):
         kind, reasons = ("VERIFY_EXISTING_SCOPE" if status == "BLOCKED_AUTH" else "HOLD"), [status]
-    elif execution.get("budget_exhausted"):
-        kind, reasons = "REVISE_PLAN", ["BUDGET_EXHAUSTED_NO_AUTO_RETRY"]
-    elif status == "NEEDS_REVIEW":
-        kind, reasons = "INDEPENDENT_REVIEW", ["AGENT_REQUESTED_REVIEW_UNVERIFIED"]
     elif status == "NOT_CONNECTED":
         kind, reasons = "SWITCH_AGENT", ["PREVIOUS_AGENT_NOT_CONNECTED"]
     elif status == "FAILED":
         kind, reasons = "REVISE_PLAN", ["EXECUTION_FAILED_CAUSE_UNVERIFIED"]
+    elif execution.get("budget_exhausted"):
+        kind, reasons = "REVISE_PLAN", ["BUDGET_EXHAUSTED_NO_AUTO_RETRY"]
+    elif status == "NEEDS_REVIEW":
+        if task.task_type in ("review", "human_assessment"):
+            kind, reasons = "REVIEW_OUTCOME_PENDING", ["REVIEW_REQUIRES_TRUSTED_EVIDENCE_ASSESSMENT"]
+        else:
+            kind, reasons = "INDEPENDENT_REVIEW", ["AGENT_REQUESTED_REVIEW_UNVERIFIED"]
+    elif status == "COMPLETED" and task.task_type in ("review", "human_assessment"):
+        kind, reasons = "REVIEW_OUTCOME_PENDING", ["REVIEW_NOT_INDEPENDENTLY_ATTESTED_NO_FURTHER_AGENT_REVIEW"]
+    elif task.required_effects:
+        # If the operation is still pending, verify existing H6/DEV scope
+        # instead of implicitly demanding a fresh author decision.
+        kind, reasons = "VERIFY_EXISTING_SCOPE", ["ORIGINAL_SCOPE_NOT_YET_VERIFIED"]
     elif status == "COMPLETED":
         refs = normalized.get("deliverables", {})
         if not isinstance(refs, dict):

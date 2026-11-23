@@ -1,5 +1,6 @@
 """Non-executable next-task proposals. Never inherit previous task effects or grants."""
 from __future__ import annotations
+import hashlib
 from typing import Any
 from .models import TaskPacket
 
@@ -22,6 +23,8 @@ _OBJECTIVES = {
         "Verify which remaining in-scope steps justify continuation with the same agent; do not implicitly repeat the previous task."),
     "READY_FOR_NEXT_STAGE": ("planning", "review",
         "Review verified completion evidence and identify the next authorized scientific stage without starting it."),
+    "REVIEW_OUTCOME_PENDING": ("human_assessment", "human_review",
+        "Await trusted original-evidence assessment of the completed review; do not send another agent merely to re-review the same report."),
 }
 
 _ACCEPTANCE = (
@@ -42,11 +45,26 @@ def propose_next_task(previous: TaskPacket, normalized: dict[str, Any], decision
     if normalized.get("task_id") != previous.task_id or normalized.get("project_id") != previous.project_id:
         raise ValueError("NEXT_TASK_RESULT_IDENTITY_MISMATCH")
     task_type, capability, objective = _OBJECTIVES[kind]
+    if kind == "SWITCH_AGENT":
+        capability = previous.capability or previous.task_type
+        objective = (
+            "Identify a VERIFIED alternative provider for the original "
+            + previous.task_type + " task under the original scope; "
+            "do not repeat the work or dispatch automatically."
+        )
+    # Attempt and decision-specific stable proposal identity prevents branch
+    # collisions without copying unbounded old task IDs into new identifiers.
+    identity = "|".join((
+        previous.project_id, previous.task_id,
+        str(normalized.get("attempt_id", "UNSPECIFIED")), kind,
+    ))
+    proposal_id = "NEXT-" + kind[:12] + "-" + hashlib.sha256(
+        identity.encode("utf-8")).hexdigest()[:12]
     claimed_refs = {k: list(v) for k, v in normalized.get("deliverables", {}).items()}
     return {
         "schema_version": "1.0",
         "status": "PROPOSED_SOURCE_REVIEW_REQUIRED",
-        "proposal_id": "NEXT-" + previous.task_id,
+        "proposal_id": proposal_id,
         "project_id": previous.project_id,
         "from_task_id": previous.task_id,
         "decision_type": kind,

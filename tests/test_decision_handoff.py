@@ -240,3 +240,45 @@ def test_export_detects_deleted_json(tmp_path, monkeypatch, capsys):
     Path(data["saved_files"]["handoff_json"]).unlink()
     assert main(args) == 2
     assert "HANDOFF_CONTENT_MISMATCH" in capsys.readouterr().out
+
+def test_review_completion_does_not_trigger_recursive_review():
+    t = TaskPacket(task_id="REV-01", project_id="P1", task_type="review",
+                   capability="review", objective="Independently review earlier DEV",
+                   idempotency_key="review-once")
+    n = normalize_result({
+        "schema_version": "2.0", "project_id": "P1", "task_id": "REV-01",
+        "agent_id": "independent-reviewer", "attempt_id": "rev-attempt",
+        "execution": {"status": "COMPLETED"},
+        "deliverables": {"report_refs": ["review-note"]},
+    }, t)
+    d = decide_next(t, n, compile_guidance(t, ()), REGISTRY)
+    assert d["decision_type"] == "REVIEW_OUTCOME_PENDING"
+    assert d["next_task"]["task_type"] == "human_assessment"
+    assert d["next_task"]["capability"] == "human_review"
+    assert d["can_auto_dispatch"] is False
+
+
+def test_failed_dev_with_effects_diagnoses_failure_before_scope_recheck():
+    t = task(required_effects=("local_dev_execution",))
+    report = raw_v2(execution={"status": "FAILED"})
+    d = decision_for(report, t=t)
+    assert d["decision_type"] == "REVISE_PLAN"
+    assert d["authorization_status"] == "SCOPE_NOT_YET_VERIFIED"
+    assert d["execution_authorized"] is False
+
+
+def test_switch_agent_preserves_required_capability_not_review_role():
+    t = TaskPacket(task_id="T1", project_id="P1", task_type="code_experiment",
+                   capability="code_experiment", objective="Existing algorithm task",
+                   idempotency_key="stable")
+    d = decision_for(raw_v2(execution={"status": "NOT_CONNECTED"}), t=t)
+    assert d["decision_type"] == "SWITCH_AGENT"
+    assert d["suggested_capability"] == "code_experiment"
+    assert d["next_task"]["capability"] == "code_experiment"
+
+
+def test_distinct_attempts_generate_distinct_proposal_ids():
+    t = task()
+    d1 = decision_for(raw_v2(attempt_id="first"), t=t)
+    d2 = decision_for(raw_v2(attempt_id="second"), t=t)
+    assert d1["next_task"]["proposal_id"] != d2["next_task"]["proposal_id"]
