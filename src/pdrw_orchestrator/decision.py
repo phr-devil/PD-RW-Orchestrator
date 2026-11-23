@@ -106,6 +106,10 @@ def decide_next(
     # Next-role routing, not re-use of the old task's declared capability.
     from .next_task import _OBJECTIVES
     next_type, capability, _ = _OBJECTIVES[kind]
+    if kind == "SWITCH_AGENT":
+        # A replacement provider needs the previous task's actual skill, not
+        # a generic review capability.
+        capability = task.capability or task.task_type
     ready, unavailable = _real_candidates(capability, agents)
     selected = ready[0] if ready else None
     if selected is None:

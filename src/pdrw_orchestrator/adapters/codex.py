@@ -114,7 +114,13 @@ def verify_fixture() -> Path:
     for path in entries:
         if path.is_symlink() or not path.is_file() or path.stat().st_size > 24 * 1024:
             raise ValueError("PILOT_FIXTURE_FILE_UNSAFE")
-        if hashlib.sha256(path.read_bytes()).hexdigest() != _ALLOWED_FIXTURE_SHA256[path.name]:
+        raw = path.read_bytes()
+        # Windows Git checkout may use CRLF; normalize line endings only.
+        # Reject any stray CR byte so that this does not weaken allowlisting.
+        if b"\r" in raw.replace(b"\r\n", b""):
+            raise ValueError("PILOT_FIXTURE_HASH_MISMATCH")
+        normalized_bytes = raw.replace(b"\r\n", b"\n")
+        if hashlib.sha256(normalized_bytes).hexdigest() != _ALLOWED_FIXTURE_SHA256[path.name]:
             raise ValueError("PILOT_FIXTURE_HASH_MISMATCH")
     return fixture
 

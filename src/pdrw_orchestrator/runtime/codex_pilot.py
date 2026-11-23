@@ -97,6 +97,12 @@ def run_codex_pilot(
     """Actual model invocation: caller must enforce explicit opt-in separately."""
     # Preflight MUST finish before staging or any external/model invocation.
     verify_fixture()
+    # Probing is local/no-model. A missing CLI must return NOT_CONNECTED even
+    # when no private runtime directory is configured.
+    probe = probe_codex(codex_bin)
+    if not probe.supported or not probe.executable:
+        return {"status": "NOT_CONNECTED", "probe": probe.to_dict(),
+                "model_invoked": False}
     task = pilot_task()
     schema_path = Path(__file__).resolve().parents[3] / "schemas" / "codex-pilot-response.schema.json"
     Draft202012Validator.check_schema(json.loads(schema_path.read_text(encoding="utf-8")))
@@ -114,10 +120,6 @@ def run_codex_pilot(
     # Checks absolute runtime directory and overlap with protected roots without
     # writing a DB or committing the execution intent.
     _store_path(create=False)
-    probe = probe_codex(codex_bin)
-    if not probe.supported or not probe.executable:
-        return {"status": "NOT_CONNECTED", "probe": probe.to_dict(),
-                "model_invoked": False}
     # This is intentionally the only possible task; it has zero project effects.
     stage_plan(plan_id, (task,))
     intent = mark_intent_uncertain(task.project_id, plan_id, task.task_id, attempt_id)

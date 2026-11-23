@@ -131,7 +131,7 @@ def test_end_to_end_simulated_codex_result_and_one_attempt(tmp_path, monkeypatch
     assert first["model_invoked_confirmed"] is False
     assert first["structured_cli_output_received"] is True
     assert first["external_model_usage_verified"] is False
-    assert first["decision_type"] == "INDEPENDENT_REVIEW"
+    assert first["decision_type"] == "REVIEW_OUTCOME_PENDING"
     assert first["science_validated"] is False
     assert first["execution_authorized_for_research"] is False
     assert first["restart_permitted"] is False
@@ -145,7 +145,7 @@ def test_end_to_end_simulated_codex_result_and_one_attempt(tmp_path, monkeypatch
     assert report["dispatch_scope"] == "NEXT_TASK_ONLY"
     assert Path(first["host_receipt_ref"]).is_file()
     assert report["previous_execution"]["scientific_completion_verified"] is False
-    assert "independently" in report["next_task"]["objective"].lower()
+    assert report["next_task"]["task_type"] == "human_assessment"
     assert Path(files["handoff_md"]).is_file()
     assert len(invoked) == 1
     assert inspect_plan("PILOT", "m2pilot-one")["status"] == "RECONCILIATION_REQUIRED"
