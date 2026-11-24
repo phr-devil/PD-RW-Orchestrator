@@ -21,6 +21,7 @@ from .controller import run_demo
 from .decision import decide_next
 from .instruction import build_bundle
 from .integrations.pdrw import inspect_resume, pdrw_status
+from .integrations.experience import retrieve_for_task
 from .integrations.source_checks import inspect_source_chain
 from .planner import demo_plan
 from .policy import load_policy, compile_guidance
@@ -131,6 +132,9 @@ def build_parser() -> argparse.ArgumentParser:
     advice.add_argument("--python", dest="pdrw_python", default=None)
     advice.add_argument("--source-operation-id", default=None)
     advice.add_argument("--source-run-id", default=None)
+    advice.add_argument("--experience-config", help="Operator-owned local Experience trust configuration")
+    advice.add_argument("--experience-query", help="Explicit search terms; never copied from Agent output")
+    advice.add_argument("--experience-as-of", help="Original task visibility cutoff YYYY-MM-DD")
     advice.add_argument("--save", action="store_true",
                         help="Save handoff.json/md into private PDRW_ORCH_RUNTIME_DIR")
     return parser
@@ -335,9 +339,35 @@ def main(argv: list[str] | None = None) -> int:
                     task.project_id, python_executable=args.pdrw_python,
                 ) if args.with_pdrw else None
             decision = decide_next(task, normalized, guidance, load_agents(args.agents), source_context=context)
-            next_guidance = compile_guidance(policy_task_for_proposal(decision["next_task"]), all_rules)
+            proposed = policy_task_for_proposal(decision["next_task"])
+            extra, retrieval = (), None
+            if args.experience_config or args.experience_query or args.experience_as_of:
+                if not (args.experience_config and args.experience_query and args.experience_as_of):
+                    raise ValueError("EXPERIENCE_CONFIG_QUERY_AND_CUTOFF_REQUIRED")
+                if decision["decision_type"] in ("INDEPENDENT_REVIEW", "REVISE_PLAN"):
+                    extra, retrieval = retrieve_for_task(
+                        proposed, config_path=args.experience_config,
+                        query=args.experience_query, as_of=args.experience_as_of)
+                    if set(r.id for r in extra) & set(r.id for r in all_rules):
+                        extra = ()
+                        retrieval = {**retrieval, "status": "EXPERIENCE_RULE_ID_COLLISION"}
+                else:
+                    retrieval = {"status": "EXPERIENCE_SKIPPED_NON_RESEARCH_NEXT_ACTION",
+                                 "permission_granted": False, "model_calls_requested": 0}
+            next_guidance = compile_guidance(proposed, all_rules + extra)
             result = build_bundle(task, normalized, decision, guidance,
                                   next_guidance=next_guidance, source_context=context)
+            if retrieval is not None:
+                retrieval["selected_experience_rule_ids"] = [
+                    item["id"] for item in next_guidance.selected_items
+                    if item["level"] == "experience" and item["id"] in {r.id for r in extra}]
+                result["experience_retrieval"] = retrieval
+                result["chatgpt_handoff_md"] += (
+                    "\n## Experience retrieval (advisory, conditions unverified)\n"
+                    + json.dumps(retrieval, ensure_ascii=False) + "\n"
+                    + "\n".join(json.dumps(item, ensure_ascii=False)
+                                for item in next_guidance.selected_items
+                                if item["id"] in retrieval["selected_experience_rule_ids"]) + "\n")
             if args.save:
                 from .instruction import save_bundle
                 result["saved_files"] = save_bundle(result)

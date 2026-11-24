@@ -14,8 +14,10 @@ def _policy_lines(packet: GuidancePacket | None) -> list[str]:
     lines = []
     for item in packet.selected_items[:8]:
         level = "ADVISORY_UNVERIFIED" if item["level"] == "experience" else item["level"].upper()
-        lines.append("- " + item["id"] + " [" + level + ", " +
-                     item["applicability"] + "] " + _literal(item["text"]))
+        line = "- " + item["id"] + " [" + level + ", " + item["applicability"] + "] " + _literal(item["text"])
+        if item["level"] == "experience":
+            line += " | conditions (unverified): " + _literal(item["conditions"]) + " | evidence: " + _literal(item["evidence_refs"]) + " | source: " + _literal(item["source"])
+        lines.append(line)
     return lines or ["- No matching guidance; original PD-RW remains authoritative"]
 
 def build_instruction(task: TaskPacket, normalized: dict[str, Any],

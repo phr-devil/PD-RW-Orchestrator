@@ -110,7 +110,7 @@ def compile_guidance(
     if type(limit) is not int or limit < 1:
         raise ValueError("guidance limit must be positive integer")
     matching = sorted((r for r in rules if r.applies(task)),
-                      key=lambda r: (RANK[r.level], r.id))
+                      key=lambda r: (RANK[r.level], "" if r.level == "experience" else r.id))
     ids = [r.id for r in matching]
     if len(set(ids)) != len(ids):
         raise ValueError("conflicting/duplicate rule IDs")
