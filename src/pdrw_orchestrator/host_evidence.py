@@ -24,7 +24,8 @@ def _checked_bytes(path: Path, maximum: int) -> bytes:
         raise ValueError("HOST_ARTIFACT_MISSING_OR_SYMLINK")
     if path.stat().st_size > maximum:
         raise ValueError("HOST_ARTIFACT_TOO_LARGE")
-    data = path.read_bytes()
+    with path.open("rb") as stream:
+        data = stream.read(maximum + 1)
     if len(data) > maximum:
         raise ValueError("HOST_ARTIFACT_CHANGED_DURING_READ")
     return data
@@ -48,11 +49,18 @@ def write_pilot_receipt(
     run_dir: Path, *, contract: dict[str, Any],
     project_id: str, task_id: str, attempt_id: str,
     invocation: dict[str, Any], codex_version: str | None,
+    lifecycle_required: bool = False,
 ) -> dict[str, Any]:
     output_path = run_dir / "codex-final.json"
     output_sha = None
+    output_state = "ABSENT"
     if output_path.exists() or output_path.is_symlink():
-        output_sha = _digest(_checked_bytes(output_path, _MAX_OUTPUT_BYTES))
+        try:
+            output_sha = _digest(_checked_bytes(output_path, _MAX_OUTPUT_BYTES))
+            output_state = "HASHED"
+        except (OSError, ValueError):
+            # Preserve the host outcome even when the output is oversized or unsafe.
+            output_state = "UNREADABLE_OR_OVERSIZE"
     status = invocation.get("status")
     code = invocation.get("returncode")
     if not isinstance(status, str) or (code is not None and type(code) is not int):
@@ -68,6 +76,8 @@ def write_pilot_receipt(
         "process_returncode": code,
         "contract_sha256": contract_sha256(contract),
         "structured_output_sha256": output_sha,
+        "output_state": output_state,
+        "lifecycle_required": lifecycle_required,
         "codex_version_probed": codex_version,
         "captured_utc": datetime.now(timezone.utc).isoformat(),
         "external_model_usage_verified": False,
@@ -108,7 +118,7 @@ def inspect_pilot_receipt(
                 or contract.get("scientific_completion_verified") is not False
                 or contract.get("dispatch_authorized_by_contract") is not False):
             raise ValueError("HOST_CONTRACT_SCOPE_INVALID")
-        if (receipt.get("schema_version") != "1.0" or
+        if (not isinstance(receipt, dict) or receipt.get("schema_version") != "1.0" or
                 receipt.get("origin") != "LOCAL_SUBPROCESS_OBSERVATION" or
                 receipt.get("project_id") != project_id or
                 receipt.get("task_id") != task_id or
@@ -150,6 +160,8 @@ def inspect_pilot_receipt(
                  or any(ch not in "0123456789abcdef" for ch in expected_output))):
             raise ValueError("HOST_OUTPUT_DIGEST_INVALID")
         output_file = run_dir / "codex-final.json"
+        if receipt.get("output_state") == "UNREADABLE_OR_OVERSIZE":
+            raise ValueError("HOST_OUTPUT_REQUIRES_RECONCILIATION")
         if expected_output is None:
             if output_file.exists() or output_file.is_symlink():
                 raise ValueError("HOST_UNRECORDED_OUTPUT_PRESENT")
@@ -164,6 +176,9 @@ def inspect_pilot_receipt(
             "contract_sha256": actual_sha,
             "structured_output_sha256": expected_output,
             "local_byte_consistency_checked": True,
+            "lifecycle_required": receipt.get("lifecycle_required", False),
+            "outcome": status,
+            "process_returncode": code,
             "original_pd_rw_evidence_verified": False,
             "authorization_verified": False,
             "scientific_completion_verified": False,

@@ -14,7 +14,7 @@ from .host_evidence import inspect_pilot_receipt
 from .runtime.codex_pilot import pilot_task
 from .runtime.codex_pilot import run_codex_pilot
 from .runtime.host_checks import audit_host, inspect_process
-from .runtime.lifecycle import inspect_lifecycle
+from .runtime.lifecycle import inspect_lifecycle, lifecycle_matches_invocation
 from .controller import run_demo
 from .decision import decide_next
 from .instruction import build_bundle
@@ -230,11 +230,17 @@ def main(argv: list[str] | None = None) -> int:
                     contract_file = run_dir / "task-contract.json"
                     if contract_file.is_file() and not contract_file.is_symlink() and contract_file.stat().st_size <= 12288:
                         import hashlib
-                        digest = hashlib.sha256(contract_file.read_bytes()).hexdigest()
+                        with contract_file.open("rb") as stream:
+                            digest = hashlib.sha256(stream.read(12289)).hexdigest()
                         result["process_lifecycle"] = inspect_lifecycle(
                             run_dir, plan_id=args.plan_id, attempt_id=args.attempt_id,
                             contract_sha256=digest,
                         )
+                    if result.get("lifecycle_required") is True and not lifecycle_matches_invocation(
+                            result.get("process_lifecycle", {}), result.get("outcome"),
+                            result.get("process_returncode")):
+                        result["status"] = "HOST_CHILD_LIFECYCLE_RECONCILIATION_REQUIRED"
+                        result["local_byte_consistency_checked"] = False
             else:
                 if not (args.execute and args.ack_external_model):
                     raise ValueError("EXPLICIT_MODEL_OPT_IN_REQUIRED")

@@ -114,6 +114,9 @@ def test_end_to_end_simulated_codex_result_and_one_attempt(tmp_path, monkeypatch
         assert task_contract['guidance']
         assert task_contract['required_effects'] == []
         invoked.append((executable, output_path, wall_seconds))
+        lifecycle.record("launch-intent", {"wall_seconds": wall_seconds})
+        lifecycle.record("child-started", {"pid": 123, "identity": None, "identity_status": "MOCK"})
+        lifecycle.record("child-ended", {"outcome": "EXITED", "returncode": 0})
         output_path.write_text(json.dumps(fake_report()), encoding="utf-8")
         return {
             "status": "STRUCTURED_OUTPUT_RECEIVED",
@@ -170,6 +173,9 @@ def test_timeout_keeps_attempt_uncertain_no_retry(tmp_path, monkeypatch):
     called = []
     def timeout(**kw):
         called.append(True)
+        kw["lifecycle"].record("launch-intent", {"wall_seconds": 120})
+        kw["lifecycle"].record("child-started", {"pid": 123, "identity": None, "identity_status": "MOCK"})
+        kw["lifecycle"].record("child-ended", {"outcome": "TIMEOUT", "returncode": None})
         return {"status": "TIMEOUT_PROCESS_STATE_UNCERTAIN",
                 "returncode": None, "report": None}
     monkeypatch.setattr(codex_pilot, "run_readonly_pilot", timeout)
@@ -312,6 +318,9 @@ def test_subprocess_returned_but_invalid_result_keeps_host_receipt(tmp_path, mon
     monkeypatch.setattr(codex_pilot, "probe_codex", lambda _: codex.CodexProbe(
         "CLI_CAPABILITY_PROBE_OK", str(Path(sys.executable)), "synthetic", True))
     def malformed(**kw):
+        kw["lifecycle"].record("launch-intent", {"wall_seconds": 120})
+        kw["lifecycle"].record("child-started", {"pid": 123, "identity": None, "identity_status": "MOCK"})
+        kw["lifecycle"].record("child-ended", {"outcome": "EXITED", "returncode": 0})
         kw["output_path"].write_text('{"summary":"partial"}', encoding="utf-8")
         return {"status": "STRUCTURED_OUTPUT_RECEIVED", "returncode": 0,
                 "report": {"summary": "partial"}}

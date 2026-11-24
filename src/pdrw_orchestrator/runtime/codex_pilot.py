@@ -32,7 +32,7 @@ from pdrw_orchestrator.runtime.store import (
     _store_path, mark_intent_uncertain, stage_plan,
 )
 from pdrw_orchestrator.next_task import _OBJECTIVES
-from .lifecycle import PilotLifecycle, inspect_lifecycle
+from .lifecycle import PilotLifecycle, inspect_lifecycle, lifecycle_matches_invocation
 
 PILOT_PROJECT_ID = "PILOT"
 PILOT_TASK_ID = "CODEX-READ-001"
@@ -164,7 +164,7 @@ def run_codex_pilot(
         previous_execution = write_pilot_receipt(
             run_dir, contract=contract, project_id=task.project_id,
             task_id=task.task_id, attempt_id=attempt_id,
-            invocation=invocation, codex_version=probe.version,
+            invocation=invocation, codex_version=probe.version, lifecycle_required=True,
         )
         local_check = inspect_pilot_receipt(
             run_dir, project_id=task.project_id, task_id=task.task_id,
@@ -177,6 +177,9 @@ def run_codex_pilot(
             run_dir, plan_id=plan_id, attempt_id=attempt_id,
             contract_sha256=contract_sha256(contract),
         )
+        if not lifecycle_matches_invocation(
+                local_check["process_lifecycle"], invocation["status"], invocation.get("returncode")):
+            raise ValueError("HOST_CHILD_LIFECYCLE_RECONCILIATION_REQUIRED")
         output_hash = previous_execution["structured_output_sha256"]
         payload = _readout_to_result(invocation, task, attempt_id, output_path)
         normalized = normalize_result(payload, task)

@@ -150,8 +150,16 @@ def inspect_lifecycle(directory: Path, *, plan_id: str, attempt_id: str,
         if type(pid) is not int or not 1 <= pid <= 2**31-1:
             return result
         identity = started.get("identity")
-        if identity is not None and (not isinstance(identity, dict) or identity.get("pid") != pid):
-            return result
+        if identity is not None:
+            import math
+            import re
+            if (not isinstance(identity, dict) or identity.get("pid") != pid
+                    or type(identity.get("created_at")) not in (int, float)
+                    or not 0 < identity["created_at"] < 1e12
+                    or not math.isfinite(identity["created_at"])
+                    or not isinstance(identity.get("exe_path_sha256"), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", identity["exe_path_sha256"])):
+                return result
         if end_path.exists() or end_path.is_symlink():
             ended, _ = load("child-ended", digest)
             code = ended.get("returncode")
@@ -169,3 +177,14 @@ def inspect_lifecycle(directory: Path, *, plan_id: str, attempt_id: str,
     except (OSError, ValueError, TypeError, KeyError, UnicodeError):
         pass
     return result
+
+
+
+def lifecycle_matches_invocation(check: dict, status: str, returncode: int | None) -> bool:
+    """Never accept a reported result without the corresponding local child event."""
+    if status == "TIMEOUT_PROCESS_STATE_UNCERTAIN":
+        return check.get("status") == "LIFECYCLE_TIMEOUT_RECORDED" and returncode is None
+    if status == "PROCESS_LAUNCH_FAILED_UNCERTAIN":
+        return check.get("status") == "LIFECYCLE_LAUNCH_FAILED_RECORDED" and returncode is None
+    return (check.get("status") == "LIFECYCLE_DIRECT_CHILD_EXIT_RECORDED"
+            and type(returncode) is int and check.get("returncode") == returncode)
