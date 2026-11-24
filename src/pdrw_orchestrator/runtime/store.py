@@ -292,3 +292,19 @@ def assess_recovery(local: dict, upstream: dict) -> dict:
         "execution_authorized": False, "restart_permitted": False,
         "scientific_completion_verified": False,
     }
+
+
+
+def has_exact_intent(project_id: str, plan_id: str, task_id: str, attempt_id: str) -> bool:
+    """Read-only exact intent lookup; a match is not a dispatch permission."""
+    for name, value in (("project_id", project_id), ("plan_id", plan_id),
+                        ("task_id", task_id), ("attempt_id", attempt_id)):
+        _identifier(value, name)
+    path = _store_path(create=False)
+    if path is None or not path.is_file() or path.is_symlink():
+        return False
+    with _database(path, write=False) as db:
+        row = db.execute(
+            "SELECT intent_id,phase FROM tasks WHERE project_id=? AND plan_id=? AND task_id=?",
+            (project_id, plan_id, task_id)).fetchone()
+    return row is not None and row["intent_id"] == attempt_id and row["phase"] == "INTENT_UNCERTAIN"

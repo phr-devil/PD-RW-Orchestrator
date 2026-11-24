@@ -14,6 +14,7 @@ from .host_evidence import inspect_pilot_receipt
 from .runtime.codex_pilot import pilot_task
 from .runtime.codex_pilot import run_codex_pilot
 from .runtime.host_checks import audit_host, inspect_process
+from .runtime.lifecycle import inspect_lifecycle
 from .controller import run_demo
 from .decision import decide_next
 from .instruction import build_bundle
@@ -26,7 +27,7 @@ from .next_task import policy_task_for_proposal
 from .registry import load_agents
 from .runtime.store import (
     assess_recovery, inspect_plan, mark_intent_uncertain, stage_plan,
-    _identifier, _store_path,
+    _identifier, _store_path, has_exact_intent,
 )
 
 
@@ -217,12 +218,23 @@ def main(argv: list[str] | None = None) -> int:
                 private_store = _store_path(create=False)
                 if private_store is None or not private_store.is_file():
                     result = {"status": "NO_PLAN_STORE", "restart_permitted": False}
+                elif not has_exact_intent("PILOT", args.plan_id, "CODEX-READ-001", args.attempt_id):
+                    result = {"status": "PILOT_INTENT_NOT_FOUND", "restart_permitted": False}
                 else:
                     run_dir = private_store.parent / "codex-pilot" / args.plan_id / args.attempt_id
                     result = inspect_pilot_receipt(
                         run_dir, project_id="PILOT", task_id="CODEX-READ-001",
                         attempt_id=args.attempt_id,
                     )
+                    # Even after a crash with no final receipt, inspect the recorded lifecycle.
+                    contract_file = run_dir / "task-contract.json"
+                    if contract_file.is_file() and not contract_file.is_symlink() and contract_file.stat().st_size <= 12288:
+                        import hashlib
+                        digest = hashlib.sha256(contract_file.read_bytes()).hexdigest()
+                        result["process_lifecycle"] = inspect_lifecycle(
+                            run_dir, plan_id=args.plan_id, attempt_id=args.attempt_id,
+                            contract_sha256=digest,
+                        )
             else:
                 if not (args.execute and args.ack_external_model):
                     raise ValueError("EXPLICIT_MODEL_OPT_IN_REQUIRED")

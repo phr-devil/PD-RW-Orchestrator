@@ -109,7 +109,7 @@ def test_end_to_end_simulated_codex_result_and_one_attempt(tmp_path, monkeypatch
     ))
     invoked = []
 
-    def fake_invoke(*, executable, output_path, wall_seconds, task_contract):
+    def fake_invoke(*, executable, output_path, wall_seconds, task_contract, lifecycle):
         assert task_contract['project_id'] == 'PILOT'
         assert task_contract['guidance']
         assert task_contract['required_effects'] == []

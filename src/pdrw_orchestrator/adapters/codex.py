@@ -20,6 +20,7 @@ from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 from pdrw_orchestrator.contracts import render_pilot_contract
 from pdrw_orchestrator.assets import data_root
+from pdrw_orchestrator.runtime.lifecycle import PilotLifecycle, run_tracked_child
 
 _MAX_OUTPUT_BYTES = 64 * 1024
 # Pinned contents of the public synthetic pilot, NOT arbitrary repo files.
@@ -145,6 +146,7 @@ def run_readonly_pilot(
     output_path: Path,
     wall_seconds: int,
     task_contract: dict[str, Any] | None = None,
+    lifecycle: PilotLifecycle | None = None,
 ) -> dict[str, Any]:
     """One real CLI process; caller must persist dispatch intent BEFORE calling."""
     if type(wall_seconds) is not int or not 10 <= wall_seconds <= 300:
@@ -171,21 +173,27 @@ def run_readonly_pilot(
         "--output-last-message", str(output_path),
         "-",
     ]
-    try:
-        proc = subprocess.run(
-            args, input=rendered_prompt, text=True, check=False,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            timeout=wall_seconds,
-        )
-    except subprocess.TimeoutExpired:
-        return {"status": "TIMEOUT_PROCESS_STATE_UNCERTAIN", "returncode": None,
-                "report": None}
-    except OSError:
-        return {"status": "PROCESS_LAUNCH_FAILED_UNCERTAIN", "returncode": None,
-                "report": None}
-    if proc.returncode != 0:
-        return {"status": "PROCESS_FAILED", "returncode": proc.returncode,
-                "report": None}
+    if lifecycle is not None:
+        returncode, failure = run_tracked_child(args, rendered_prompt, wall_seconds, lifecycle)
+        if failure is not None:
+            return {"status": failure, "returncode": None, "report": None}
+    else:
+        # Legacy direct adapter API; the orchestrated path always tracks lifecycle.
+        try:
+            proc = subprocess.run(
+                args, input=rendered_prompt, text=True, check=False,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=wall_seconds,
+            )
+        except subprocess.TimeoutExpired:
+            return {"status": "TIMEOUT_PROCESS_STATE_UNCERTAIN", "returncode": None,
+                    "report": None}
+        except OSError:
+            return {"status": "PROCESS_LAUNCH_FAILED_UNCERTAIN", "returncode": None,
+                    "report": None}
+        returncode = proc.returncode
+    if returncode != 0:
+        return {"status": "PROCESS_FAILED", "returncode": returncode, "report": None}
     if not output_path.is_file() or output_path.is_symlink():
         return {"status": "NO_MACHINE_READABLE_OUTPUT", "returncode": 0,
                 "report": None}
