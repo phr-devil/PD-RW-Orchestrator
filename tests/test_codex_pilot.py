@@ -109,7 +109,10 @@ def test_end_to_end_simulated_codex_result_and_one_attempt(tmp_path, monkeypatch
     ))
     invoked = []
 
-    def fake_invoke(*, executable, output_path, wall_seconds):
+    def fake_invoke(*, executable, output_path, wall_seconds, task_contract):
+        assert task_contract['project_id'] == 'PILOT'
+        assert task_contract['guidance']
+        assert task_contract['required_effects'] == []
         invoked.append((executable, output_path, wall_seconds))
         output_path.write_text(json.dumps(fake_report()), encoding="utf-8")
         return {
@@ -140,6 +143,11 @@ def test_end_to_end_simulated_codex_result_and_one_attempt(tmp_path, monkeypatch
     assert report["result"]["scientific_assessment"]["effective_claim_status"] == "NOT_ASSESSED"
     assert report["result"]["agent_id"] == "codex-local"
     assert report["previous_execution"]["origin"] == "LOCAL_SUBPROCESS_OBSERVATION"
+    assert report["previous_execution"]["contract_sha256"] == first["task_contract_sha256"]
+    assert report["host_artifact_review"]["status"] == "LOCAL_BYTES_MATCH_NOT_SCIENCE"
+    assert report["host_artifact_review"]["scientific_completion_verified"] is False
+    assert first["pilot_capability"]["scope"] == "PILOT_SYNTHETIC_READONLY_ONLY"
+    assert first["pilot_capability"]["general_research_ready"] is False
     assert report["previous_execution"]["dispatch_attempted"] is True
     assert report["next_dispatch_performed"] is False
     assert report["dispatch_scope"] == "NEXT_TASK_ONLY"
