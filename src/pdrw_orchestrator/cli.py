@@ -24,6 +24,7 @@ from .integrations.pdrw import inspect_resume, pdrw_status
 from .integrations.experience import retrieve_for_task
 from .experience_evaluation import screen_lessons, feedback_candidate, evaluate_pairs, digest as evaluation_digest
 from .research_options import compare_options, context_digest
+from .benchmark import replay, assess, compare_providers
 from .integrations.source_checks import inspect_source_chain
 from .planner import demo_plan
 from .policy import load_policy, compile_guidance
@@ -141,6 +142,10 @@ def build_parser() -> argparse.ArgumentParser:
     advice.add_argument("--experience-ablation", action="store_true", help="Prepare paired draft instructions; no executions")
     advice.add_argument("--save", action="store_true",
                         help="Save handoff.json/md into private PDRW_ORCH_RUNTIME_DIR")
+    bench = commands.add_parser("benchmark", help="Offline frozen-case replay and provider comparison")
+    bench.add_argument("action", choices=["replay", "assess", "providers"])
+    bench.add_argument("--manifest", required=True)
+    bench.add_argument("--replay")
     routes = commands.add_parser("routes", help="Compare declared research routes without dispatch")
     routes.add_argument("--handoff", required=True)
     routes.add_argument("--options")
@@ -310,6 +315,18 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "demo":
             report = run_demo(demo_plan(), load_agents(args.agents), load_policy(args.policy))
             result = report.to_dict()
+        elif args.command == "benchmark":
+            manifest = _bounded_json_file(args.manifest, "BENCHMARK")
+            if args.action == "assess":
+                if not args.replay:
+                    raise ValueError("BENCHMARK_REPLAY_REQUIRED")
+                result = assess(_bounded_json_file(args.replay, "REPLAY"), manifest)
+            elif args.replay:
+                raise ValueError("BENCHMARK_UNEXPECTED_REPLAY")
+            elif args.action == "replay":
+                result = replay(manifest, load_policy(args.policy), load_agents(args.agents))
+            else:
+                result = compare_providers(manifest, load_agents(args.agents))
         elif args.command == "routes":
             bundle = _bounded_json_file(args.handoff, "HANDOFF")
             if args.options:
