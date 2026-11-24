@@ -101,7 +101,8 @@ def build_bundle(task: TaskPacket, normalized: dict[str, Any],
                  decision: dict, guidance: GuidancePacket, *,
                  next_guidance: GuidancePacket | None = None,
                  source_context: dict | None = None,
-                 previous_execution: dict[str, Any] | None = None) -> dict:
+                 previous_execution: dict[str, Any] | None = None,
+                 host_artifact_review: dict[str, Any] | None = None) -> dict:
     return {
         "schema_version": "1.1", "mode": "ADVISORY_DRAFT_ONLY",
         "project_id": task.project_id, "task_id": task.task_id,
@@ -117,6 +118,12 @@ def build_bundle(task: TaskPacket, normalized: dict[str, Any],
         },
         "next_dispatch_performed": False,
         "dispatch_scope": "NEXT_TASK_ONLY",
+        "host_artifact_review": host_artifact_review if host_artifact_review is not None else {
+            "status": "NOT_CHECKED",
+            "original_pd_rw_evidence_verified": False,
+            "authorization_verified": False,
+            "scientific_completion_verified": False,
+        },
         "agent_instruction_draft": build_instruction(
             task, normalized, decision, guidance, next_guidance=next_guidance),
         "chatgpt_handoff_md": build_chatgpt_report(

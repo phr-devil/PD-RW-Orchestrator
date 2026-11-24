@@ -7,6 +7,8 @@ from pathlib import Path
 
 from .agent_result import normalize_result
 from .adapters.codex import probe_codex
+from .capabilities import accept_codex_pilot_probe
+from .runtime.codex_pilot import pilot_task
 from .runtime.codex_pilot import run_codex_pilot
 from .controller import run_demo
 from .decision import decide_next
@@ -152,7 +154,10 @@ def main(argv: list[str] | None = None) -> int:
             if args.action == "probe":
                 if args.execute or args.ack_external_model or args.plan_id or args.attempt_id:
                     raise ValueError("CODEX_PROBE_DOES_NOT_ACCEPT_EXECUTION_FLAGS")
-                result = probe_codex(args.codex_bin).to_dict()
+                probe = probe_codex(args.codex_bin)
+                result = probe.to_dict()
+                result["pilot_capability"] = accept_codex_pilot_probe(
+                    probe, load_agents(args.agents), pilot_task()).to_dict()
             else:
                 if not (args.execute and args.ack_external_model):
                     raise ValueError("EXPLICIT_MODEL_OPT_IN_REQUIRED")

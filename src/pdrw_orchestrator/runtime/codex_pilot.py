@@ -14,6 +14,13 @@ from pdrw_orchestrator.adapters.codex import (
     probe_codex, run_readonly_pilot, verify_fixture,
 )
 from pdrw_orchestrator.agent_result import normalize_result
+from pdrw_orchestrator.capabilities import accept_codex_pilot_probe
+from pdrw_orchestrator.contracts import (
+    compile_pilot_contract, contract_sha256, render_pilot_contract,
+)
+from pdrw_orchestrator.host_evidence import (
+    inspect_pilot_receipt, write_pilot_contract, write_pilot_receipt,
+)
 from pdrw_orchestrator.decision import decide_next
 from pdrw_orchestrator.instruction import build_bundle, save_bundle
 from pdrw_orchestrator.models import TaskPacket
@@ -109,6 +116,13 @@ def run_codex_pilot(
     rules = load_policy(policy_path)
     agents = load_agents(registry_path)
     guidance = compile_guidance(task, rules)
+    contract = compile_pilot_contract(task, guidance)
+    render_pilot_contract(contract)  # All model prompt checks before intent.
+    scoped_capability = accept_codex_pilot_probe(probe, agents, task)
+    if not scoped_capability.supported:
+        return {"status": "PILOT_AGENT_CAPABILITY_NOT_ACCEPTED",
+                "capability": scoped_capability.to_dict(),
+                "model_invoked": False}
     if guidance.denied_effects:
         raise ValueError("PILOT_POLICY_DENIES_REQUESTED_EFFECT")
     for task_type, capability, objective in _OBJECTIVES.values():
@@ -133,36 +147,29 @@ def run_codex_pilot(
     if run_dir.exists() or run_dir.is_symlink():
         raise ValueError("PILOT_ATTEMPT_ARTIFACT_COLLISION_NO_RETRY")
     run_dir.mkdir(parents=True)
+    write_pilot_contract(run_dir, contract)
     output_path = run_dir / "codex-final.json"
     try:
         invocation = run_readonly_pilot(
             executable=probe.executable,
             output_path=output_path,
             wall_seconds=task.budget["max_wall_seconds"],
+            task_contract=contract,
         )
-        # Host observation is separate from Agent claims and scientific truth.
-        # A return code alone cannot prove a model was billed or a claim is valid.
-        if output_path.is_file() and output_path.stat().st_size <= 64 * 1024:
-            output_hash = hashlib.sha256(output_path.read_bytes()).hexdigest()
-        else:
-            output_hash = None
-        previous_execution = {
-            "origin": "LOCAL_SUBPROCESS_OBSERVATION",
-            "project_id": task.project_id,
-            "task_id": task.task_id,
-            "attempt_id": attempt_id,
-            "dispatch_attempted": True,
-            "process_returncode": invocation.get("returncode"),
-            "outcome": invocation["status"],
-            "structured_output_sha256": output_hash,
-            "external_model_usage_verified": False,
-            "scientific_completion_verified": False,
-        }
-        # Save bounded operational metadata before result normalization; failed
-        # parsing must never erase the fact a local process was attempted.
-        (run_dir / "host-execution.json").write_text(
-            json.dumps(previous_execution, sort_keys=True, indent=2) + "\n",
-            encoding="utf-8")
+        # Only local execution facts. This receipt is NOT a PD-RW scientific Run.
+        previous_execution = write_pilot_receipt(
+            run_dir, contract=contract, project_id=task.project_id,
+            task_id=task.task_id, attempt_id=attempt_id,
+            invocation=invocation, codex_version=probe.version,
+        )
+        local_check = inspect_pilot_receipt(
+            run_dir, project_id=task.project_id, task_id=task.task_id,
+            attempt_id=attempt_id,
+            expected_contract_sha256=contract_sha256(contract),
+        )
+        if not local_check["local_byte_consistency_checked"]:
+            raise ValueError("HOST_EXECUTION_RECEIPT_INTEGRITY_FAILED")
+        output_hash = previous_execution["structured_output_sha256"]
         payload = _readout_to_result(invocation, task, attempt_id, output_path)
         normalized = normalize_result(payload, task)
         decision = decide_next(task, normalized, guidance, agents)
@@ -170,6 +177,7 @@ def run_codex_pilot(
         bundle = build_bundle(
             task, normalized, decision, guidance,
             next_guidance=next_guidance, previous_execution=previous_execution,
+            host_artifact_review=local_check,
         )
         saved = save_bundle(bundle)
         return {
@@ -186,6 +194,10 @@ def run_codex_pilot(
             "process_returncode": invocation.get("returncode"),
             "structured_output_sha256": output_hash,
             "host_receipt_ref": str(run_dir / "host-execution.json"),
+            "task_contract_ref": str(run_dir / "task-contract.json"),
+            "task_contract_sha256": contract_sha256(contract),
+            "pilot_capability": scoped_capability.to_dict(),
+            "local_evidence_check": local_check,
             "private_report": saved,
             "decision_type": decision["decision_type"],
             "next_task": decision["next_task"],
