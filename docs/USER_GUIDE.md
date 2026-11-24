@@ -50,3 +50,18 @@ or process restart can result. For task-specific advice, add
 `--with-pdrw --source-operation-id OP-001 --source-run-id RUN-001` to
 `advise`. The original task ID must match the source declaration.
 See [R2-B source checks](R2B_SOURCE_CHAIN.md).
+
+## Ordinary Wheel install (v0.6.2)
+
+The package now includes the non-sensitive default Agent Registry, Policy,
+Codex synthetic fixture and output Schema, so `doctor`, `codex contract`,
+and the fixed synthetic pilot file checks can run from a regular Wheel install
+without a source checkout. The bundled assets are **examples only**, never
+original H6 author grants or scientific source files. For editable installs,
+repo assets remain authoritative and are hash checked; missing/changed source
+fixtures are not replaced silently.
+
+For a production original project, supply actual private project mapping
+via `PDRW_AGENT_CONFIG` and PD-RW rule checkout via
+`PDRW_WORKFLOW_ROOT`. The Wheel does not include private project data,
+PD-RW-Agent or any real execution permission.

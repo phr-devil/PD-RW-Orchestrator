@@ -34,3 +34,9 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   Upgrade JSON Schema test validation to offline referencing.Registry.
   CI uses synthetic/mocked upstream data. Real host author permission,
   process liveness and original science remain outside this verifier.
+
+- **v0.6.2 Wheel packaging:** package the non-sensitive example default
+  Registry, Policy, Codex synthetic fixture and output schema; prefer original
+  checkout resources in editable mode without silently substituting a
+  missing/changed source fixture. Validate ordinary Wheel install and the
+  no-model `codex contract` CLI in an isolated directory on Windows/Linux.

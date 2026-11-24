@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.6.1 / R2-B hardening: bounded upstream resume, source-snapshot drift checks and fail-closed local execution receipts; operator-host M1-C acceptance remains pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.6.2 / R2-B hardening and regular Wheel assets: bounded source checks, conservative receipts and installed-package CLI support. Real Windows operator-host M1-C acceptance remains pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ## Mission
 
