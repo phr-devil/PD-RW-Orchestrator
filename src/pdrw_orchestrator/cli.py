@@ -23,6 +23,7 @@ from .instruction import build_bundle
 from .integrations.pdrw import inspect_resume, pdrw_status
 from .integrations.experience import retrieve_for_task
 from .experience_evaluation import screen_lessons, feedback_candidate, evaluate_pairs, digest as evaluation_digest
+from .research_options import compare_options, context_digest
 from .integrations.source_checks import inspect_source_chain
 from .planner import demo_plan
 from .policy import load_policy, compile_guidance
@@ -140,6 +141,9 @@ def build_parser() -> argparse.ArgumentParser:
     advice.add_argument("--experience-ablation", action="store_true", help="Prepare paired draft instructions; no executions")
     advice.add_argument("--save", action="store_true",
                         help="Save handoff.json/md into private PDRW_ORCH_RUNTIME_DIR")
+    routes = commands.add_parser("routes", help="Compare declared research routes without dispatch")
+    routes.add_argument("--handoff", required=True)
+    routes.add_argument("--options")
     exp = commands.add_parser("experience", help="Offline feedback candidate and matched-pair audit")
     exp.add_argument("action", choices=["feedback", "evaluate"])
     exp.add_argument("--assessment", required=True)
@@ -306,6 +310,14 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "demo":
             report = run_demo(demo_plan(), load_agents(args.agents), load_policy(args.policy))
             result = report.to_dict()
+        elif args.command == "routes":
+            bundle = _bounded_json_file(args.handoff, "HANDOFF")
+            if args.options:
+                result = compare_options(bundle, _bounded_json_file(args.options, "OPTIONS"), load_agents(args.agents))
+            else:
+                result = {"status":"ROUTE_CONTEXT_ONLY", "project_id":bundle["project_id"],
+                          "proposal_id":bundle["next_task"]["proposal_id"],
+                          "context_sha256":context_digest(bundle), "execution_authorized":False}
         elif args.command == "experience":
             assessment = _bounded_json_file(args.assessment, "ASSESSMENT")
             if args.action == "feedback":

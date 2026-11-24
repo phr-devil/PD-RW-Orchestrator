@@ -182,7 +182,7 @@ def evaluate_pairs(manifest):
             if any(type(v) is not int or v not in (0, 1) for v in arm["rubric"].values()):
                 raise ValueError("PAIR_RUBRIC_INVALID")
             for key in ("tokens", "wall_seconds"):
-                if type(arm[key]) is not int or arm[key] < 0:
+                if arm[key] is not None and (type(arm[key]) is not int or arm[key] < 0):
                     raise ValueError("PAIR_COST_INVALID")
         a,b = pair["without_experience"],pair["with_experience"]
         if a["result_ref"] == b["result_ref"]:
@@ -190,14 +190,17 @@ def evaluate_pairs(manifest):
         delta = {k: b["rubric"][k]-a["rubric"][k] for k in _RUBRIC}
         critical_loss = any(delta[k] < 0 for k in ("source_legality", "scientific_validity"))
         rows.append({"case_id":ident, "rubric_delta":delta, "quality_delta":sum(delta.values()),
-                     "critical_regression":critical_loss, "tokens_delta":b["tokens"]-a["tokens"],
-                     "wall_seconds_delta":b["wall_seconds"]-a["wall_seconds"]})
+                     "critical_regression":critical_loss,
+                     "tokens_delta": (b["tokens"]-a["tokens"] if None not in (a["tokens"], b["tokens"]) else None),
+                     "wall_seconds_delta": (b["wall_seconds"]-a["wall_seconds"] if None not in (a["wall_seconds"], b["wall_seconds"]) else None)})
     return {"status":"DESCRIPTIVE_PAIRED_EVALUATION_ONLY", "pair_count":len(rows),
             "critical_regression_count":sum(r["critical_regression"] for r in rows),
             "negative_transfer_candidates":sum(r["critical_regression"] or r["quality_delta"] < 0 for r in rows),
             "mean_quality_delta":mean(r["quality_delta"] for r in rows),
-            "total_tokens_delta":sum(r["tokens_delta"] for r in rows),
-            "total_wall_seconds_delta":sum(r["wall_seconds_delta"] for r in rows),
+            "total_tokens_delta": (sum(r["tokens_delta"] for r in rows) if all(r["tokens_delta"] is not None for r in rows) else None),
+            "total_wall_seconds_delta": (sum(r["wall_seconds_delta"] for r in rows) if all(r["wall_seconds_delta"] is not None for r in rows) else None),
+            "token_pairs_measured_declared":sum(r["tokens_delta"] is not None for r in rows),
+            "wall_time_pairs_measured_declared":sum(r["wall_seconds_delta"] is not None for r in rows),
             "pairs":rows, "matched_protocol_declared_only":True,
             "independent_review_verified":False, "causal_effect_verified":False,
             "automatic_lesson_update":False, "permission_granted":False}
