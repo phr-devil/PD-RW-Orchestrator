@@ -69,6 +69,16 @@ def test_actual_registered_run_and_receipt(tmp_path,monkeypatch):
     assert checked["scientific_validity_verified"] is False
     assert checked["restart_permitted"] is False
     assert "PRIVATE_SYNTHETIC_MARKER" not in json.dumps(checked)
+    from pdrw_orchestrator.integrations.admission import preview_admission
+    proposal={"schema_version":"pdrw-dev-plan-v1","project_id":"P1","operation_id":"OP2",
+              "task_id":"T1","runner_id":"local","action":"DEV_CODE",
+              "task_spec_sha256":"a"*64,"code_sha256":"b"*64,"dataset_manifest_sha256":"c"*64,
+              "time_limit_seconds":60,"cpu_limit":1,"gpu_count":0,"network":False,"data_split":"dev"}
+    preview=preview_admission(proposal,python_executable=sys.executable)
+    assert preview["status"]=="DEV_ADMISSION_PREVIEW_ONLY",preview
+    assert preview["execution_authorized"] is False
+    assert preview["original_user_grant_verified"] is False
+    assert preview_admission({**proposal,"network":True},python_executable=sys.executable)["status"]=="DEV_ADMISSION_UPSTREAM_REJECTED"
     assert snapshot()==before
     (root/refs["predictions"]).write_text("changed",encoding="utf-8")
     changed=inspect_source_chain("P1",run_id="RUN1",python_executable=sys.executable)

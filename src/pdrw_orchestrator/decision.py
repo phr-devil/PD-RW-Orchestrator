@@ -67,17 +67,19 @@ def decide_next(
                    "SCOPE_NOT_YET_VERIFIED" if task.required_effects or status == "BLOCKED_AUTH" else
                    "NOT_REQUIRED_FOR_PROPOSAL")
     reasons: list[str]
-    if blocker:
+    if blocker and blocker[0] == "RECONCILE":
+        kind, reasons = blocker[0], [blocker[1]]
+    elif guidance.denied_effects or status == "BLOCKED_POLICY":
+        kind, reasons = "HOLD", ["POLICY_EFFECT_DENIED" if guidance.denied_effects else status]
+    elif status == "BLOCKED_AUTH":
+        kind, reasons = "VERIFY_EXISTING_SCOPE", [status]
+    elif blocker:
         kind, code = blocker
         if kind == "INDEPENDENT_REVIEW" and task.task_type in ("review", "human_assessment"):
             kind = "REVIEW_OUTCOME_PENDING"
         reasons = [code]
-    elif guidance.denied_effects:
-        kind, reasons = "HOLD", ["POLICY_EFFECT_DENIED"]
     elif status in ("DEMO_ONLY", "BLOCKED_DEPENDENCY"):
         kind, reasons = "RECONCILE", ["MOCK_RESULT_NO_SCIENCE" if status == "DEMO_ONLY" else "DEPENDENCY_NOT_RESOLVED"]
-    elif status in ("BLOCKED_AUTH", "BLOCKED_POLICY"):
-        kind, reasons = ("VERIFY_EXISTING_SCOPE" if status == "BLOCKED_AUTH" else "HOLD"), [status]
     elif status == "NOT_CONNECTED":
         kind, reasons = "SWITCH_AGENT", ["PREVIOUS_AGENT_NOT_CONNECTED"]
     elif status == "FAILED":

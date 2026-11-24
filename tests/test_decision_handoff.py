@@ -299,3 +299,12 @@ def test_switch_does_not_recommend_previous_provider():
     d = decision_for(raw_v2(agent_id="codex-local",execution={"status":"NOT_CONNECTED"}),t=t)
     assert "codex-local" not in d["declared_but_unavailable_agent_ids"]
     assert d["recommended_agent_id"] is None
+
+
+@pytest.mark.parametrize("status,expected",[("BLOCKED_AUTH","VERIFY_EXISTING_SCOPE"),("BLOCKED_POLICY","HOLD")])
+def test_pending_source_review_cannot_override_current_gate(status,expected):
+    upstream={"bridge_status":"SOURCE_REVIEW_ONLY","project_id":"P1",
+              "source_status":"ARTIFACT_REVIEW_PENDING","pending_scientific_review_count":1}
+    out=decision_for(raw_v2(execution={"status":status}),source_context=upstream)
+    assert out["decision_type"]==expected
+    assert out["can_auto_dispatch"] is False

@@ -21,6 +21,7 @@ from .controller import run_demo
 from .decision import decide_next
 from .instruction import build_bundle
 from .integrations.pdrw import inspect_resume, pdrw_status
+from .integrations.admission import preview_admission
 from .integrations.experience import retrieve_for_task
 from .experience_evaluation import screen_lessons, feedback_candidate, evaluate_pairs, digest as evaluation_digest
 from .research_options import compare_options, context_digest
@@ -42,10 +43,7 @@ def _repository_root() -> Path:
 
 
 def _load_plan_file(path: str) -> tuple[str, tuple[TaskPacket, ...]]:
-    source = Path(path)
-    if not source.is_file() or source.stat().st_size > 128 * 1024:
-        raise ValueError("PLAN_FILE_MISSING_OR_TOO_LARGE")
-    obj = json.loads(source.read_text(encoding="utf-8"))
+    obj = _bounded_json_file(path, "PLAN")
     if not isinstance(obj, dict) or set(obj) != {"schema_version", "plan_id", "tasks"}:
         raise ValueError("PLAN_FILE_INVALID_SHAPE")
     if obj["schema_version"] != "1.0" or not isinstance(obj["tasks"], list):
@@ -76,7 +74,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--agents", default=str(_repository_root() / "configs/agents.example.yaml"))
     parser.add_argument("--policy", default=str(_repository_root() / "policies/user/research-guidance.example.yaml"))
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("doctor")
+    doctor = commands.add_parser("doctor", help="Read-only configuration and optional original-source diagnostics")
+    doctor.add_argument("--project-id")
+    doctor.add_argument("--python", dest="pdrw_python")
     agents = commands.add_parser("agents")
     agents.add_argument("action", choices=["list"])
     policy = commands.add_parser("policy")
@@ -126,6 +126,9 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--python", dest="pdrw_python")
     audit.add_argument("--expected-version", default="1.0.0rc1")
     audit.add_argument("--expected-cli-sha256")
+    admission = host_actions.add_parser("admission", help="Preview an upstream DEV proposal; never executes")
+    admission.add_argument("--plan-file", required=True)
+    admission.add_argument("--python", dest="pdrw_python")
     process = host_actions.add_parser("process", help="Sample one operator-selected local PID")
     process.add_argument("--pid", type=int, required=True)
     process.add_argument("--expected-created-at", type=float)
@@ -188,6 +191,29 @@ def main(argv: list[str] | None = None) -> int:
             result = {"mode": "EXTERNAL_CODEX_PILOT_OPT_IN_ONLY", "external_agents_ready": False,
                       "trusted_host_authorizer": False, "real_science_measured": False,
                       "pdrw": pdrw_status()}
+            if args.project_id:
+                checks = {}
+                for label, loader, path in (("policy", load_policy, args.policy),
+                                            ("agents", load_agents, args.agents)):
+                    try:
+                        checks[label] = {"status": "SHAPE_OK_ONLY", "count": len(loader(path))}
+                    except (OSError, ValueError, TypeError, KeyError):
+                        checks[label] = {"status": "CONFIG_REJECTED"}
+                try:
+                    _store_path(create=False)
+                    checks["runtime"] = {"status": "PATH_CHECKED_NO_WRITE"}
+                except (OSError, ValueError, TypeError, KeyError):
+                    checks["runtime"] = {"status": "RUNTIME_CONFIG_REJECTED"}
+                checks["original_source"] = audit_host(args.project_id, python_executable=args.pdrw_python)
+                result["checks"] = checks
+                result["status"] = ("READ_ONLY_DIAGNOSTICS_COMPLETE" if
+                    checks["policy"]["status"] == checks["agents"]["status"] == "SHAPE_OK_ONLY"
+                    and checks["runtime"]["status"] == "PATH_CHECKED_NO_WRITE"
+                    and checks["original_source"]["status"] == "HOST_READ_ONLY_CHECKS_COMPLETE"
+                    else "DIAGNOSTICS_REQUIRE_RECONCILIATION")
+                result["execution_authorized"] = False
+            elif args.pdrw_python:
+                raise ValueError("DOCTOR_PYTHON_REQUIRES_PROJECT_ID")
         elif args.command == "agents":
             registry = load_agents(args.agents)
             result = [{"id": a.id, "capabilities": list(a.capabilities),
@@ -311,6 +337,9 @@ def main(argv: list[str] | None = None) -> int:
                     expected_version=args.expected_version,
                     expected_cli_sha256=args.expected_cli_sha256,
                 )
+            elif args.action == "admission":
+                result = preview_admission(_bounded_json_file(args.plan_file, "DEV_PROPOSAL"),
+                                           python_executable=args.pdrw_python)
             else:
                 result = inspect_process(
                     args.pid, expected_created_at=args.expected_created_at,
@@ -465,9 +494,11 @@ def main(argv: list[str] | None = None) -> int:
                 "CLAUDE_PILOT_CAPABILITY_ONLY", "RELAY_PREVIEW_ONLY",
                 "STRUCTURED_OUTPUT_RECEIVED", "LOCAL_BYTES_MATCH_NOT_SCIENCE",
                 "LOCAL_RECEIPT_MATCH_NO_OUTPUT") else 3
+        if args.command == "doctor" and args.project_id:
+            return 0 if result["status"] == "READ_ONLY_DIAGNOSTICS_COMPLETE" else 3
         if args.command == "host":
             return 0 if result["status"] in (
-                "HOST_READ_ONLY_CHECKS_COMPLETE", "PROCESS_OBSERVED_UNBOUND",
+                "HOST_READ_ONLY_CHECKS_COMPLETE", "DEV_ADMISSION_PREVIEW_ONLY", "PROCESS_OBSERVED_UNBOUND",
                 "PROCESS_MATCH_ALIVE",
             ) else 3
         if args.command == "pdrw" and args.action == "source-check":

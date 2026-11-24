@@ -69,3 +69,35 @@ approval when that original grant is verifiable.
 Local plan integrity and cross-plan unresolved-intent protection now
 prevent accidental re-reservation. This does not authenticate the DB,
 establish dependency evidence validity or replace the upstream receipts.
+
+## Pre-RC operator entry points
+
+Use one read-only configuration pass:
+~~~powershell
+pdrw-orch doctor --project-id PROJECT --python PATH_TO_AGENT_PYTHON
+~~~
+The optional project form checks local policy/registry shape, runtime directory
+separation (no creation), and installed RC/source observation. Exit 0 means
+these diagnostic checks completed, not readiness to execute. Exit 3 means
+reconciliation required; the original no-argument doctor remains compatible.
+
+For an actual frozen DEV declaration:
+~~~powershell
+pdrw-orch host admission --plan-file DEV_PROPOSAL.json --python PATH_TO_AGENT_PYTHON
+~~~
+Use the upstream host/contracts.py pdrw-dev-plan-v1 schema, not the unrelated
+CPU_SELFTEST_V1 execution-preflight CLI schema. The adapter calls the installed
+RC host.authorization.preview_dev_admission in an isolated interpreter,
+checks the returned identity/digest and all false authorization/runtime flags,
+and rejects config/rule sample drift. No submit, Run registration, receipt
+write, execution or grant is performed. The selected interpreter/package is
+operator-trusted; version agreement and sampled fingerprints are not a
+full revision or OS identity authentication. A successful preview means the
+upstream accepted the declaration, not that its referenced hashes were
+verified or a task is executable.
+
+Release gate: a separate authenticated OS/tool host must validate original
+H6 scope against frozen task/code/dataset, enforce filesystem/network and
+resource constraints, bind operation to actual process, and register evidence
+through the original workflow. Missing verifier does not mean fresh H6 is
+required. This gate remains upstream work; no synthetic test can close it.
