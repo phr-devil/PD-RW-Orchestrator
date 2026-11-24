@@ -22,7 +22,7 @@ from .decision import decide_next
 from .instruction import build_bundle
 from .integrations.pdrw import inspect_resume, pdrw_status
 from .integrations.experience import retrieve_for_task
-from .experience_evaluation import screen_lessons, feedback_candidate, evaluate_pairs
+from .experience_evaluation import screen_lessons, feedback_candidate, evaluate_pairs, digest
 from .integrations.source_checks import inspect_source_chain
 from .planner import demo_plan
 from .policy import load_policy, compile_guidance
@@ -137,6 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
     advice.add_argument("--experience-query", help="Explicit search terms; never copied from Agent output")
     advice.add_argument("--experience-as-of", help="Original task visibility cutoff YYYY-MM-DD")
     advice.add_argument("--experience-applicability", help="Optional operator-declared condition evidence for proposed task")
+    advice.add_argument("--experience-ablation", action="store_true", help="Prepare paired draft instructions; no executions")
     advice.add_argument("--save", action="store_true",
                         help="Save handoff.json/md into private PDRW_ORCH_RUNTIME_DIR")
     exp = commands.add_parser("experience", help="Offline feedback candidate and matched-pair audit")
@@ -357,7 +358,7 @@ def main(argv: list[str] | None = None) -> int:
             decision = decide_next(task, normalized, guidance, load_agents(args.agents), source_context=context)
             proposed = policy_task_for_proposal(decision["next_task"])
             extra, retrieval = (), None
-            if args.experience_config or args.experience_query or args.experience_as_of or args.experience_applicability:
+            if args.experience_config or args.experience_query or args.experience_as_of or args.experience_applicability or args.experience_ablation:
                 if not (args.experience_config and args.experience_query and args.experience_as_of):
                     raise ValueError("EXPERIENCE_CONFIG_QUERY_AND_CUTOFF_REQUIRED")
                 if decision["decision_type"] in ("INDEPENDENT_REVIEW", "REVISE_PLAN"):
@@ -393,6 +394,23 @@ def main(argv: list[str] | None = None) -> int:
                     + "\n".join(json.dumps(item, ensure_ascii=False)
                                 for item in next_guidance.selected_items
                                 if item["id"] in retrieval["selected_experience_rule_ids"]) + "\n")
+            if args.experience_ablation:
+                base_next = compile_guidance(proposed, all_rules)
+                baseline = build_bundle(task, normalized, decision, guidance,
+                                        next_guidance=base_next, source_context=context)
+                control = baseline["agent_instruction_draft"]
+                treatment = result["agent_instruction_draft"]
+                result["experience_ablation"] = {
+                    "status": "MATCHED_DRAFTS_ONLY" if retrieval["selected_experience_rule_ids"] else "NO_EXPERIENCE_TREATMENT_AVAILABLE",
+                    "common_context_sha256": digest({"task": task.to_dict(), "result": normalized,
+                        "decision": decision, "source_context": context, "base_guidance": base_next.to_dict()}),
+                    "without_experience": {"instruction": control, "sha256": digest(control)},
+                    "with_experience": {"instruction": treatment, "sha256": digest(treatment)},
+                    "selected_experience_rule_ids": retrieval["selected_experience_rule_ids"],
+                    "instruction_character_delta": len(treatment)-len(control),
+                    "model_calls_requested": 0, "execution_authorized": False,
+                    "scientific_effect_verified": False,
+                }
             if args.save:
                 from .instruction import save_bundle
                 result["saved_files"] = save_bundle(result)
@@ -419,7 +437,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if result["verification_status"] == "SOURCE_READ_ONLY_CHECKS_COMPLETE" else 3
         return 0 if (not isinstance(result, dict) or
                      result.get("bridge_status") in (None, "SOURCE_REVIEW_ONLY")) else 3
-    except (OSError, ValueError, TypeError, sqlite3.Error) as exc:
+    except (OSError, ValueError, TypeError, KeyError, sqlite3.Error) as exc:
         print(json.dumps({"status": "ERROR", "reason": str(exc)}, ensure_ascii=False))
         return 2
 

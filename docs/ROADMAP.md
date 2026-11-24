@@ -74,3 +74,10 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   test added; no ACE/model invocation, automatic feedback updates or grant
   escalation. Next evaluate actual reviewed case library and decision
   usefulness/cost; no repeated mock framework expansion.
+
+- **v0.9.1 M3-B:** conditional Experience screening bound to task/rule
+  identity, explicit unverified usage/transfer and dual-channel feedback,
+  upstream feedback candidate shape, one-retrieval paired draft generation
+  and descriptive matched quality/cost evaluation with critical regression
+  flags. Actual reviewed case library, provider runs and causal efficacy
+  assessment remain pending; no automatic learning/permission escalation.

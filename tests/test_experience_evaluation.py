@@ -166,3 +166,47 @@ def test_cli_screen_excludes_mismatched_advice(tmp_path,monkeypatch,capsys):
     assert filtered["experience_retrieval"]["selected_experience_rule_ids"]==[]
     assert filtered["decision"]==original["decision"]
     assert "Check the anchor" not in filtered["agent_instruction_draft"]
+
+
+def test_matched_draft_ablation_single_retrieval(tmp_path,monkeypatch,capsys):
+    from pdrw_orchestrator import cli
+    t=ROOT/"examples/decision-task.example.json"
+    raw=json.loads((ROOT/"examples/agent-result-v2.example.json").read_text(encoding="utf-8"))
+    raw["execution"]["status"]="FAILED"
+    path=tmp_path/"result.json"
+    path.write_text(json.dumps(raw),encoding="utf-8")
+    calls=[]
+    def fake(proposed,**kw):
+        calls.append(proposed.task_id)
+        return (Guidance(id="L1:v2",level="experience",source="experience:public",
+                    task_types=(proposed.task_type,),text="Check the anchor",
+                    conditions=("Prefix prediction",),evidence_refs=("C1#S1",)),),{
+                    "status":"EXPERIENCE_ADVISORIES_RECEIVED"}
+    monkeypatch.setattr(cli,"retrieve_for_task",fake)
+    assert main(["advise","--task-file",str(t),"--result-file",str(path),
+        "--experience-config","operator.json","--experience-query","leakage",
+        "--experience-as-of","2026-04-01","--experience-ablation"])==0
+    result=json.loads(capsys.readouterr().out)
+    comparison=result["experience_ablation"]
+    assert comparison["status"]=="MATCHED_DRAFTS_ONLY"
+    assert len(calls)==1
+    assert "Check the anchor" not in comparison["without_experience"]["instruction"]
+    assert "Check the anchor" in comparison["with_experience"]["instruction"]
+    assert comparison["model_calls_requested"]==0
+    assert comparison["execution_authorized"] is False
+
+
+def test_upstream_feedback_contract(tmp_path):
+    import os
+    import subprocess
+    import sys
+    if not os.environ.get("PDRW_EXPERIENCE_TEST_ROOT"):
+        pytest.skip("actual upstream installed only in contract CI")
+    packet=feedback_candidate(handoff(),assessment())
+    path=tmp_path/"candidate.json"
+    path.write_text(json.dumps(packet["feedback"]),encoding="utf-8")
+    proc=subprocess.run([sys.executable,"-I","-B","-m","pdrw_experience.cli","feedback-check",str(path)],
+                        capture_output=True,text=True,timeout=15,check=True)
+    checked=json.loads(proc.stdout)
+    assert checked[0]["status"]=="RECEIVED_UNVERIFIED"
+    assert checked[0]["automatic_lesson_update"] is False

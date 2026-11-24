@@ -111,3 +111,98 @@ automatic training), compare decision quality/cost with and without advice,
 and carry reviewed feedback to Experience through its existing contract.
 Actual author scope, general Agent dispatch and real provider/host validation
 are still pending.
+
+
+## M3-B (v0.9.1): applicability, feedback and matched evaluation
+
+### Conditional transfer screening
+
+The optional --experience-applicability JSON is operator-owned, not an
+Agent decision. Bind it to the proposed task ID, project ID and exact
+rule SHA-256 printed in experience_retrieval.applicability_screen.
+For example (illustrative identifiers):
+
+~~~json
+{"schema_version":"1.0","project_id":"P","task_id":"NEXT-T",
+ "assessments":[{"rule_id":"L1:v2","rule_sha256":"COPY_FROM_HANDOFF",
+ "conditions":[{"condition":"Prefix-visible prediction",
+ "status":"MISMATCH","evidence_refs":["original-protocol-ref"]}]}]}
+~~~
+
+Use exact exported condition text and include every condition. MATCH or
+MISMATCH requires original evidence references; UNKNOWN can omit them.
+An exact declared mismatch excludes the advice. Missing, changed or
+incomplete judgments leave it review-only, never a verified match.
+A declared MATCH still needs scientific confirmation. Optional screening
+does not change the underlying decision, grant permission, require a new
+author decision or mandate routine re-retrieval. The next agent is explicitly
+asked to check conditions and not infer a failed Claim from a historical lesson.
+
+### Feedback candidate
+
+~~~powershell
+pdrw-orch experience feedback --handoff HANDOFF.json --assessment ASSESSMENT.json
+~~~
+
+Supply the selected rule ID and digest, original proposal identity, and
+actual usage declaration, with references to the original new evidence:
+
+~~~json
+{"schema_version":"1.0","project_id":"P","task_id":"NEXT-T",
+ "rule_id":"L1:v2","rule_sha256":"COPY_FROM_HANDOFF",
+ "observed_at":"2026-11-22","science":"NEGATIVE","engineering":"COMPLETED",
+ "transfer":"HELPFUL","usage":"APPLIED",
+ "observation":"The cheaper test resolved the premise.",
+ "evidence_refs":["original-run-ref"]}
+~~~
+
+Science is POSITIVE/NEGATIVE/MIXED/INCONCLUSIVE/INVALID/UNKNOWN.
+Engineering is COMPLETED/FAILED/UNKNOWN; transfer is HELPFUL/HARMFUL/
+NO_EFFECT/UNKNOWN; usage is APPLIED/NOT_APPLIED/UNKNOWN. They are
+independent declarations, not verified facts. A valid negative experiment
+may be helpful. Failed engineering, unverified usage or inconclusive/
+invalid science cannot produce directional lesson feedback. Bind the
+candidate to the prior handoff and lesson version; the proposal ID is
+not proof of actual execution. The upstream feedback v1 object is nested
+under feedback, ready for explicit operator review and separate
+pdrw-exp feedback-check. That command returns RECEIVED_UNVERIFIED.
+No lesson mutation, automatic training, sign-off, or rule promotion.
+
+### Matched evaluation
+
+Add --experience-ablation to advise with the existing Experience options
+to prepare two draft instructions from one common context and one retrieval.
+The common-context digest and both instruction digests are provided; the
+character delta is not token usage. No model is called. A lack of selected
+advice is not a treatment or evidence of zero effect.
+
+After independently executing only already authorized comparisons, supply
+a paired manifest to pdrw-orch experience evaluate --assessment PAIRS.json.
+Each case must have a common protocol SHA-256 and two distinct result
+references. The protocol should freeze model/version, task and evidence,
+budget, evaluation rubric and review setup before either arm. Example:
+
+~~~json
+{"schema_version":"1.0","pairs":[{
+ "case_id":"C1","protocol_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "without_experience":{"protocol_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "result_ref":"result-A","reviewer_ref":"review-A",
+ "rubric":{"source_legality":1,"scientific_validity":1,"decision_relevance":0,"avoids_redundant_work":0},
+ "tokens":100,"wall_seconds":5},
+ "with_experience":{"protocol_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "result_ref":"result-B","reviewer_ref":"review-B",
+ "rubric":{"source_legality":1,"scientific_validity":1,"decision_relevance":1,"avoids_redundant_work":1},
+ "tokens":120,"wall_seconds":6}}]}
+~~~
+
+Use actual measured total tokens and elapsed seconds, not estimates;
+scores are independently reviewed binary rubric entries (1 meets criterion,
+0 does not). The command checks declared pairing, not actual protocol
+bytes, reviewer independence or measurement authenticity. Critical loss of
+source legality or scientific validity is counted separately regardless
+of aggregate score or cost savings. Output is descriptive only, never
+a causal estimate or proof of publication improvement. Pre-register
+representative cases and blinded review, include failed/unknown attempts
+rather than dropping them, and use an appropriate paired statistical
+analysis for a real efficacy study. The repository does not execute these
+experiments, sign feedback or consume paid models.

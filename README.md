@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.9.0 / M3-A outcome-sensitive advisory planning and opt-in local Experience retrieval. Actual provider/host acceptance, original PD-RW grants, scientific efficacy and general research dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.9.1 / M3-B conditional Experience screening, feedback candidates and matched advisory evaluation. Actual scientific efficacy, original grants and real-project dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ### M1-C host acceptance (no model calls)
 
