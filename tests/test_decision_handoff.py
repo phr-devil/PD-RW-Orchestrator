@@ -282,3 +282,20 @@ def test_distinct_attempts_generate_distinct_proposal_ids():
     d1 = decision_for(raw_v2(attempt_id="first"), t=t)
     d2 = decision_for(raw_v2(attempt_id="second"), t=t)
     assert d1["next_task"]["proposal_id"] != d2["next_task"]["proposal_id"]
+
+
+
+def test_blocked_auth_does_not_invent_new_author_approval():
+    d = decision_for(raw_v2(execution={"status": "BLOCKED_AUTH"}))
+    assert d["decision_type"] == "VERIFY_EXISTING_SCOPE"
+    assert d["authorization_status"] == "SCOPE_NOT_YET_VERIFIED"
+    assert d["author_decision_required_for_effects"] is False
+
+
+def test_switch_does_not_recommend_previous_provider():
+    from pdrw_orchestrator.models import TaskPacket
+    t = TaskPacket(task_id="T1",project_id="P1",task_type="review",
+                   objective="Review",capability="review")
+    d = decision_for(raw_v2(agent_id="codex-local",execution={"status":"NOT_CONNECTED"}),t=t)
+    assert "codex-local" not in d["declared_but_unavailable_agent_ids"]
+    assert d["recommended_agent_id"] is None

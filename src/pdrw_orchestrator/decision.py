@@ -64,7 +64,7 @@ def decide_next(
 
     blocker = _source_blocker(source_context, task.project_id)
     auth_status = ("DENIED" if guidance.denied_effects else
-                   "SCOPE_NOT_YET_VERIFIED" if task.required_effects else
+                   "SCOPE_NOT_YET_VERIFIED" if task.required_effects or status == "BLOCKED_AUTH" else
                    "NOT_REQUIRED_FOR_PROPOSAL")
     reasons: list[str]
     if blocker:
