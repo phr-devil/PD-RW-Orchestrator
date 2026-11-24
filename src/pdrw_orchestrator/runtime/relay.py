@@ -7,8 +7,8 @@ import re
 from pathlib import Path
 
 from jsonschema import validate, ValidationError
-from ..adapters.codex import verify_fixture, output_schema_path
-from ..adapters.claude import probe_claude, run_review
+from ..adapters.codex import verify_fixture, _ALLOWED_FIXTURE_SHA256
+from ..adapters.claude import probe_claude, run_review, load_review_schema
 from ..agent_result import normalize_result
 from ..contracts import compile_pilot_contract, contract_sha256
 from ..decision import decide_next
@@ -71,7 +71,7 @@ def _parent(plan_id, attempt_id):
     digest = _sha(raw)
     if digest != receipt.get("structured_output_sha256"):
         raise ValueError("RELAY_PARENT_OUTPUT_CHANGED")
-    schema = json.loads(_read(output_schema_path(), 65536))
+    schema = load_review_schema()
     report = json.loads(raw)
     try:
         validate(instance=report, schema=schema)
@@ -84,8 +84,10 @@ def prepare_relay(plan_id, attempt_id, *, policy_path, registry_path):
     """No model call or writes. Only line numbers, never upstream free text, cross providers."""
     digest, parent_contract, report = _parent(plan_id, attempt_id)
     fixture = verify_fixture()
-    code = _read(fixture / "sensor_example.py", 24576).decode("utf-8").replace("\r\n", "\n")
-    lines = code.splitlines()
+    raw_code = _read(fixture / "sensor_example.py", 24576).replace(b"\r\n", b"\n")
+    if _sha(raw_code) != _ALLOWED_FIXTURE_SHA256["sensor_example.py"]:
+        raise ValueError("RELAY_FIXTURE_CHANGED_DURING_READ")
+    lines = raw_code.decode("utf-8").splitlines()
     focus = set()
     for observation in report["observations"][:8]:
         for ref in observation["source_refs"][:8]:
@@ -150,6 +152,9 @@ def execute_relay(plan_id, attempt_id, *, policy_path, registry_path,
         plan_id, attempt_id, policy_path=policy_path, registry_path=registry_path)
     if approved_prompt_sha256 != _sha(prompt.encode("utf-8")):
         raise ValueError("RELAY_PROMPT_APPROVAL_MISMATCH")
+    child = child_plan_id(plan_id, attempt_id)
+    if has_exact_intent("PILOT", child, TASK, ATTEMPT):
+        return {"status": "ALREADY_RESERVED_NO_RETRY", "model_invoked": False}
     # No general readiness: only the explicitly registered, different reviewer.
     probe = probe_claude(claude_bin)
     if not probe.get("supported"):
@@ -160,7 +165,11 @@ def execute_relay(plan_id, attempt_id, *, policy_path, registry_path,
         plan_id, attempt_id, policy_path=policy_path, registry_path=registry_path)
     if current != contract or current_prompt != prompt:
         raise ValueError("RELAY_INPUT_CHANGED_BEFORE_DISPATCH")
-    child = child_plan_id(plan_id, attempt_id)
+    # Preflight guidance for the possible final handoff before spending a model call.
+    from ..next_task import _OBJECTIVES
+    for task_type, capability, objective in _OBJECTIVES.values():
+        compile_guidance(TaskPacket(project_id="PILOT", task_id="PREFLIGHT",
+            task_type=task_type, capability=capability, objective=objective), rules)
     stage_plan(child, (task,))
     reserved = mark_intent_uncertain("PILOT", child, TASK, ATTEMPT)
     if reserved["status"] != "INTENT_UNCERTAIN_NO_DISPATCH":
@@ -177,7 +186,8 @@ def execute_relay(plan_id, attempt_id, *, policy_path, registry_path,
                             output_path=output, lifecycle=lifecycle)
     receipt = write_pilot_receipt(directory, contract=contract, project_id="PILOT",
         task_id=TASK, attempt_id=ATTEMPT, invocation=invocation,
-        codex_version=None, lifecycle_required=True)
+        codex_version=None, lifecycle_required=True,
+        provider_id="claude-local", provider_version=probe.get("version"))
     checked = inspect_relay(plan_id, attempt_id)
     if not checked.get("local_byte_consistency_checked"):
         raise ValueError("RELAY_CHILD_RECONCILIATION_REQUIRED")
@@ -187,6 +197,10 @@ def execute_relay(plan_id, attempt_id, *, policy_path, registry_path,
     next_guidance = compile_guidance(policy_task_for_proposal(decision["next_task"]), rules)
     bundle = build_bundle(task, normalized, decision, guidance, next_guidance=next_guidance,
                           previous_execution=receipt, host_artifact_review=checked)
+    bundle["chatgpt_handoff_md"] += (
+        "\n## Synthetic relay provenance (local bytes only)\n"
+        + json.dumps(checked.get("upstream_binding", {}), ensure_ascii=False) + "\n"
+        "No original research claim, author grant or provider cost has been verified.\n")
     saved = save_bundle(bundle)
     return {"status": invocation["status"], "agent_id": "claude-local",
             "child_plan_id": child, "child_attempt_id": ATTEMPT,
@@ -219,7 +233,12 @@ def inspect_relay(plan_id, attempt_id):
         life = inspect_lifecycle(directory, plan_id=child, attempt_id=ATTEMPT,
                                  contract_sha256=_sha(raw), task_id=TASK)
         checked["process_lifecycle"] = life
-        if (checked.get("lifecycle_required") is not True or
+        checked["upstream_binding"] = {
+            **upstream, "focus_lines": contract.get("focus_lines"),
+            "parent_local_consistency_only": True,
+        }
+        if (checked.get("provider_id") != "claude-local" or
+                checked.get("lifecycle_required") is not True or
                 not lifecycle_matches_invocation(life, checked.get("outcome"),
                                                  checked.get("process_returncode"))):
             checked["status"] = "RELAY_CHILD_RECONCILIATION_REQUIRED"

@@ -89,6 +89,7 @@ def render_pilot_contract(contract: dict[str, Any]) -> str:
     if (contract.get("schema_version") != _VERSION or
             contract.get("mode") != "PILOT_READONLY_SYNTHETIC_ONLY" or
             contract.get("project_id") != "PILOT" or
+            contract.get("task_id") != "CODEX-READ-001" or
             contract.get("required_effects") != [] or
             contract.get("dispatch_authorized_by_contract") is not False):
         raise ValueError("PILOT_CONTRACT_NOT_ALLOWED")

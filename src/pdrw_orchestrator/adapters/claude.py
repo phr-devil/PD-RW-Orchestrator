@@ -1,5 +1,6 @@
 """Claude Code limited to public synthetic review, no tools or project input."""
 from __future__ import annotations
+import hashlib
 import json
 import os
 import re
@@ -16,6 +17,23 @@ _FLAGS = ("--print", "--output-format", "--json-schema", "--tools",
           "--strict-mcp-config", "--safe-mode", "--no-session-persistence",
           "--max-turns", "--max-budget-usd", "--permission-mode", "--no-chrome")
 _MAX = 65536
+_SCHEMA_SHA256 = "8d7c098d0258f8e66955445b2b9d2f138d46ae8495568ea698939a3c57b0d495"
+
+
+def load_review_schema():
+    """Pin the exact public response contract, including all descriptions."""
+    path = output_schema_path()
+    if not path.is_file() or path.is_symlink():
+        raise ValueError("RELAY_SCHEMA_UNAVAILABLE")
+    with path.open("rb") as stream:
+        raw = stream.read(_MAX + 1)
+    if len(raw) > _MAX:
+        raise ValueError("RELAY_SCHEMA_TOO_LARGE")
+    schema = json.loads(raw)
+    canonical = json.dumps(schema, sort_keys=True, separators=(",", ":")).encode()
+    if hashlib.sha256(canonical).hexdigest() != _SCHEMA_SHA256:
+        raise ValueError("RELAY_SCHEMA_CHANGED")
+    return schema
 
 
 def probe_claude(executable=None):
@@ -50,7 +68,7 @@ def probe_claude(executable=None):
 def run_review(*, executable, prompt, output_path, lifecycle):
     """One bounded subprocess. All caller inputs originate from the fixed relay."""
     verify_fixture()
-    schema = json.loads(output_schema_path().read_text(encoding="utf-8"))
+    schema = load_review_schema()
     args = [executable, "--print", "--output-format", "json", "--json-schema",
             json.dumps(schema, separators=(",", ":")), "--safe-mode",
             "--tools", "", "--strict-mcp-config", "--no-session-persistence",

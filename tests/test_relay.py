@@ -135,3 +135,22 @@ def test_relay_cli_preview_and_flags(parent,capsys):
     assert json.loads(capsys.readouterr().out)["status"]=="RELAY_PREVIEW_ONLY"
     assert main(args+["--execute"])==2
     assert "RELAY_READONLY_ACTION_REJECTS_EXECUTION_FLAGS" in capsys.readouterr().out
+
+
+
+def test_schema_is_exact_public_contract(tmp_path,monkeypatch):
+    assert claude.load_review_schema()["title"] == "Codex pilot read-only analysis output"
+    schema = claude.load_review_schema()
+    schema["description"] = "unexpected content"
+    modified=tmp_path/"schema.json"
+    modified.write_text(json.dumps(schema),encoding="utf-8")
+    monkeypatch.setattr(claude,"output_schema_path",lambda: modified)
+    with pytest.raises(ValueError,match="RELAY_SCHEMA_CHANGED"):
+        claude.load_review_schema()
+
+
+def test_claude_contract_cannot_be_sent_to_codex(parent):
+    from pdrw_orchestrator.contracts import render_pilot_contract
+    _, _, _, _, contract, _ = relay.prepare_relay("parent","first",**OPTIONS)
+    with pytest.raises(ValueError,match="PILOT_CONTRACT_NOT_ALLOWED"):
+        render_pilot_contract(contract)

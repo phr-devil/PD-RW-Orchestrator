@@ -50,6 +50,7 @@ def write_pilot_receipt(
     project_id: str, task_id: str, attempt_id: str,
     invocation: dict[str, Any], codex_version: str | None,
     lifecycle_required: bool = False,
+    provider_id: str = "codex-local", provider_version: str | None = None,
 ) -> dict[str, Any]:
     output_path = run_dir / "codex-final.json"
     output_sha = None
@@ -79,6 +80,8 @@ def write_pilot_receipt(
         "output_state": output_state,
         "lifecycle_required": lifecycle_required,
         "codex_version_probed": codex_version,
+        "provider_id": provider_id,
+        "provider_version_probed": provider_version if provider_version is not None else codex_version,
         "captured_utc": datetime.now(timezone.utc).isoformat(),
         "external_model_usage_verified": False,
         "scientific_completion_verified": False,
@@ -177,6 +180,7 @@ def inspect_pilot_receipt(
             "structured_output_sha256": expected_output,
             "local_byte_consistency_checked": True,
             "lifecycle_required": receipt.get("lifecycle_required", False),
+            "provider_id": receipt.get("provider_id", "codex-local"),
             "outcome": status,
             "process_returncode": code,
             "original_pd_rw_evidence_verified": False,
