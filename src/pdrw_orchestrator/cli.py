@@ -13,6 +13,7 @@ from .contracts import compile_pilot_contract, contract_sha256
 from .host_evidence import inspect_pilot_receipt
 from .runtime.codex_pilot import pilot_task
 from .runtime.codex_pilot import run_codex_pilot
+from .runtime.host_checks import audit_host, inspect_process
 from .controller import run_demo
 from .decision import decide_next
 from .instruction import build_bundle
@@ -96,6 +97,20 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Explicitly allow one real model subprocess for the synthetic fixture")
     codex.add_argument("--ack-external-model", action="store_true",
                        help="Acknowledge external model transmission and possible provider charges")
+    host = commands.add_parser("host", help="Read-only local installation and process observations")
+    host_actions = host.add_subparsers(dest="action", required=True)
+    audit = host_actions.add_parser("audit", help="Inspect installed RC and original sources")
+    audit.add_argument("--project-id", required=True)
+    audit.add_argument("--task-id")
+    audit.add_argument("--operation-id")
+    audit.add_argument("--run-id")
+    audit.add_argument("--python", dest="pdrw_python")
+    audit.add_argument("--expected-version", default="1.0.0rc1")
+    audit.add_argument("--expected-cli-sha256")
+    process = host_actions.add_parser("process", help="Sample one operator-selected local PID")
+    process.add_argument("--pid", type=int, required=True)
+    process.add_argument("--expected-created-at", type=float)
+    process.add_argument("--expected-exe-path-sha256")
     commands.add_parser("demo")
     advice = commands.add_parser("advise", help="Build an offline decision and ChatGPT handoff; no dispatch")
     advice.add_argument("--task-file", required=True)
@@ -218,6 +233,19 @@ def main(argv: list[str] | None = None) -> int:
                     codex_bin=args.codex_bin,
                     policy_path=args.policy, registry_path=args.agents,
                 )
+        elif args.command == "host":
+            if args.action == "audit":
+                result = audit_host(
+                    args.project_id, task_id=args.task_id, operation_id=args.operation_id,
+                    run_id=args.run_id, python_executable=args.pdrw_python,
+                    expected_version=args.expected_version,
+                    expected_cli_sha256=args.expected_cli_sha256,
+                )
+            else:
+                result = inspect_process(
+                    args.pid, expected_created_at=args.expected_created_at,
+                    expected_exe_path_sha256=args.expected_exe_path_sha256,
+                )
         elif args.command == "demo":
             report = run_demo(demo_plan(), load_agents(args.agents), load_policy(args.policy))
             result = report.to_dict()
@@ -274,6 +302,11 @@ def main(argv: list[str] | None = None) -> int:
                 "CLI_CAPABILITY_PROBE_OK", "PILOT_CONTRACT_PREVIEW_ONLY",
                 "LOCAL_BYTES_MATCH_NOT_SCIENCE", "LOCAL_RECEIPT_MATCH_NO_OUTPUT",
                 "STRUCTURED_OUTPUT_RECEIVED",
+            ) else 3
+        if args.command == "host":
+            return 0 if result["status"] in (
+                "HOST_READ_ONLY_CHECKS_COMPLETE", "PROCESS_OBSERVED_UNBOUND",
+                "PROCESS_MATCH_ALIVE",
             ) else 3
         if args.command == "pdrw" and args.action == "source-check":
             return 0 if result["verification_status"] == "SOURCE_READ_ONLY_CHECKS_COMPLETE" else 3
