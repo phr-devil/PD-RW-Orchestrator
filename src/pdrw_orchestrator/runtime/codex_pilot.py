@@ -60,6 +60,7 @@ def pilot_task() -> TaskPacket:
 
 def _readout_to_result(
     invocation: dict, task: TaskPacket, attempt_id: str, report_path: Path,
+    *, agent_id: str = "codex-local",
 ) -> dict:
     status = invocation["status"]
     report = invocation.get("report")
@@ -82,7 +83,7 @@ def _readout_to_result(
             })
     return {
         "schema_version": "2.0", "project_id": task.project_id,
-        "task_id": task.task_id, "agent_id": "codex-local",
+        "task_id": task.task_id, "agent_id": agent_id,
         "attempt_id": attempt_id,
         "execution": {"status": raw_status, "budget_exhausted": status == "TIMEOUT_PROCESS_STATE_UNCERTAIN"},
         "deliverables": {

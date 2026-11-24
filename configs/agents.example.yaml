@@ -35,3 +35,8 @@ agents:
     capabilities: [review, analysis]
     ready: false
     priority: 30
+  - id: claude-local
+    adapter: claude
+    capabilities: [review]
+    ready: false
+    priority: 35

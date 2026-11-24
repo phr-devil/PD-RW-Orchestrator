@@ -36,10 +36,12 @@ def _read(path):
 class PilotLifecycle:
     """One fixed pilot attempt, bound to its persisted intent and contract."""
     def __init__(self, directory: Path, *, plan_id: str, attempt_id: str,
-                 contract_sha256: str):
+                 contract_sha256: str, task_id: str = "CODEX-READ-001"):
+        if task_id not in ("CODEX-READ-001", "CLAUDE-REVIEW-001"):
+            raise ValueError("LIFECYCLE_TASK_OUT_OF_SCOPE")
         self.directory = directory
         self.binding = {
-            "project_id": "PILOT", "task_id": "CODEX-READ-001",
+            "project_id": "PILOT", "task_id": task_id,
             "plan_id": plan_id, "attempt_id": attempt_id,
             "contract_sha256": contract_sha256,
         }
@@ -79,7 +81,8 @@ def _stop_owned_child(proc):
         return None
 
 
-def run_tracked_child(args, prompt, wall_seconds, lifecycle):
+def run_tracked_child(args, prompt, wall_seconds, lifecycle, *,
+                      stdout=subprocess.DEVNULL, cwd=None):
     """Internal runner for fixed synthetic adapter. No process-tree claim."""
     # Prewrite bounded stdin to a temporary OS file. Windows pipe writes can
     # block before communicate() enforces a timeout if the child never reads.
@@ -89,7 +92,7 @@ def run_tracked_child(args, prompt, wall_seconds, lifecycle):
         lifecycle.record("launch-intent", {"wall_seconds": wall_seconds})
         try:
             proc = subprocess.Popen(args, stdin=stdin,
-                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                    stdout=stdout, stderr=subprocess.DEVNULL, cwd=cwd)
         except OSError:
             lifecycle.record("child-ended", {"outcome": "LAUNCH_FAILED", "returncode": None})
             return None, "PROCESS_LAUNCH_FAILED_UNCERTAIN"
@@ -115,7 +118,7 @@ def run_tracked_child(args, prompt, wall_seconds, lifecycle):
 
 
 def inspect_lifecycle(directory: Path, *, plan_id: str, attempt_id: str,
-                      contract_sha256: str) -> dict:
+                      contract_sha256: str, task_id: str = "CODEX-READ-001") -> dict:
     """Inspect only this attempt's recorded direct-child events, not Agent claims."""
     result = {"status": "LIFECYCLE_RECONCILIATION_REQUIRED",
               "restart_permitted": False, "cancel_permitted": False,
@@ -123,7 +126,7 @@ def inspect_lifecycle(directory: Path, *, plan_id: str, attempt_id: str,
               "descendant_processes_verified": False,
               "original_operation_binding_verified": False}
     binding = PilotLifecycle(directory, plan_id=plan_id, attempt_id=attempt_id,
-                             contract_sha256=contract_sha256).binding
+                             contract_sha256=contract_sha256, task_id=task_id).binding
     def load(name, previous):
         obj, digest = _read(directory / (name + ".json"))
         if (obj.get("event") != name or obj.get("schema_version") != "1.0"
@@ -136,7 +139,7 @@ def inspect_lifecycle(directory: Path, *, plan_id: str, attempt_id: str,
             return result
         contract, digest = _read(directory / "task-contract.json")
         if (digest != contract_sha256 or contract.get("project_id") != "PILOT"
-                or contract.get("task_id") != "CODEX-READ-001"
+                or contract.get("task_id") != task_id
                 or contract.get("required_effects") != []):
             return result
         launch, digest = load("launch-intent", None)

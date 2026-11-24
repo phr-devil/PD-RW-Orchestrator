@@ -22,7 +22,7 @@ _NO_EFFECTS = (
 
 def compile_pilot_contract(task: TaskPacket, guidance: GuidancePacket) -> dict[str, Any]:
     """Fail closed when a would-be scientific task crosses pilot-only scope."""
-    if (task.project_id != "PILOT" or task.task_id != "CODEX-READ-001"
+    if (task.project_id != "PILOT" or task.task_id not in ("CODEX-READ-001", "CLAUDE-REVIEW-001")
             or task.task_type != "review" or task.capability != "review"
             or task.required_effects or task.authorization_refs
             or task.dependencies or task.evidence_refs or task.protocol_refs):

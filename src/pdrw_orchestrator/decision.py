@@ -15,8 +15,8 @@ DECISION_TYPES = frozenset({
 AUTH_STATES = frozenset({"SCOPE_NOT_YET_VERIFIED", "DENIED", "EXISTING_GRANT_VERIFIED",
                           "NEW_GRANT_REQUIRED", "NOT_REQUIRED_FOR_PROPOSAL"})
 
-def _real_candidates(capability: str, agents: tuple[AgentSpec, ...]) -> tuple[list[str], list[str]]:
-    relevant = sorted((a for a in agents if capability in a.capabilities),
+def _real_candidates(capability: str, agents: tuple[AgentSpec, ...], exclude: str | None = None) -> tuple[list[str], list[str]]:
+    relevant = sorted((a for a in agents if capability in a.capabilities and a.id != exclude),
                       key=lambda a: (a.priority, a.id))
     ready = [a.id for a in relevant if a.verified_ready and a.adapter != "mock"]
     unavailable = [a.id for a in relevant if a.id not in ready]
@@ -113,7 +113,9 @@ def decide_next(
         # A replacement provider needs the previous task's actual skill, not
         # a generic review capability.
         capability = task.capability or task.task_type
-    ready, unavailable = _real_candidates(capability, agents)
+    ready, unavailable = _real_candidates(
+        capability, agents, normalized.get("agent_id")
+        if kind in ("SWITCH_AGENT", "INDEPENDENT_REVIEW") else None)
     selected = ready[0] if ready else None
     if selected is None:
         reasons.append("NO_VERIFIED_REAL_AGENT_FOR_ROLE")
