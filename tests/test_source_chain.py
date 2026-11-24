@@ -310,3 +310,36 @@ def test_public_source_check_schema_enforces_non_authoritative_output(tmp_path,m
     forged={**real,"author_scope_verified":True}
     with pytest.raises(ValidationError):
         validate(instance=forged,schema=schema)
+
+
+
+def test_private_project_registry_changed_mid_check_fails_closed(tmp_path, monkeypatch):
+    env = configured(tmp_path)
+    original = Path(env["PDRW_AGENT_CONFIG"])
+    mock_source(monkeypatch)
+    def swap_registry(*, command, identifier, **kwargs):
+        obj = json.loads(original.read_text(encoding="utf-8"))
+        obj["projects"]["P19"]["expected_state_project_id"] = "unexpected-project"
+        original.write_text(json.dumps(obj), encoding="utf-8")
+        return operation(), None
+    monkeypatch.setattr(source_checks, "_read_cli", swap_registry)
+    checked = source_checks.inspect_source_chain(
+        "P19", operation_id="OP1", environment=env)
+    assert checked["verification_status"] == "SOURCE_INPUT_CHANGED_DURING_CHECK"
+    assert checked["author_scope_verified"] is False
+    assert checked["restart_permitted"] is False
+    assert checked["raw_project_content_returned"] is False
+
+
+def test_workflow_rules_changed_mid_resume_fails_closed(tmp_path, monkeypatch):
+    env = configured(tmp_path)
+    workflow_file = Path(env["PDRW_WORKFLOW_ROOT"]) / "WORKFLOW.md"
+    def alter_resume(*args, **kwargs):
+        workflow_file.write_text("changed policy", encoding="utf-8")
+        return source_resume()
+    monkeypatch.setattr(source_checks, "inspect_resume", alter_resume)
+    monkeypatch.setattr(source_checks, "_read_cli", lambda **kw: (
+        _ for _ in ()).throw(AssertionError("must not read further")))
+    checked = source_checks.inspect_source_chain("P19", run_id="RUN1", environment=env)
+    assert checked["verification_status"] == "SOURCE_INPUT_CHANGED_DURING_CHECK"
+    assert checked["execution_authorized"] is False

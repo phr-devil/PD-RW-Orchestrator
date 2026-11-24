@@ -61,6 +61,14 @@ def _source_settings(project_id: str, env: dict) -> tuple[dict, str | None]:
                 or not (workflow_root / "WORKFLOW.md").is_file()):
             return {}, "SOURCE_CONFIG_UNAVAILABLE"
         raw = config_path.read_bytes()
+        # Sample exact rule bytes alongside the private mapping. A later
+        # fingerprint mismatch blocks mixed-version multi-call results.
+        workflow_bytes = []
+        for name in ("AGENTS.md", "WORKFLOW.md"):
+            file = workflow_root / name
+            if file.stat().st_size > 2 * 1024 * 1024:
+                return {}, "SOURCE_RULE_FILE_OVERSIZE"
+            workflow_bytes.append(file.read_bytes())
         registry = json.loads(raw.decode("utf-8-sig"))
         if (not isinstance(registry, dict)
                 or registry.get("schema_version") != 1
@@ -71,7 +79,13 @@ def _source_settings(project_id: str, env: dict) -> tuple[dict, str | None]:
             return {}, "SOURCE_PROJECT_NOT_REGISTERED"
         if not Path(item["root"]).expanduser().resolve().is_dir():
             return {}, "SOURCE_PROJECT_ROOT_MISSING"
-        return {"registry_sha256_local_only": hashlib.sha256(raw).hexdigest()}, None
+        return {
+            "registry_sha256_local_only": hashlib.sha256(raw).hexdigest(),
+            "rule_files_sha256_local_only": hashlib.sha256(
+                b"AGENTS.md\\x00" + workflow_bytes[0] +
+                b"\\x00WORKFLOW.md\\x00" + workflow_bytes[1]
+            ).hexdigest(),
+        }, None
     except (OSError, UnicodeError, ValueError, TypeError):
         return {}, "SOURCE_CONFIG_UNREADABLE"
 
@@ -230,8 +244,14 @@ def inspect_source_chain(
     python = python_executable or sys.executable
     if not isinstance(python, str) or not Path(python).is_file():
         return _result(project_id, "SOURCE_PYTHON_NOT_FOUND")
+    def source_snapshot_unchanged() -> bool:
+        latest, check_error = _source_settings(project_id, env)
+        return check_error is None and latest == config
+
     resume = inspect_resume(project_id, python_executable=python,
                             timeout_seconds=timeout_seconds, environment=env)
+    if not source_snapshot_unchanged():
+        return _result(project_id, "SOURCE_INPUT_CHANGED_DURING_CHECK")
     if resume.get("bridge_status") != "SOURCE_REVIEW_ONLY":
         return _result(project_id, "SOURCE_RESUME_UNAVAILABLE",
                        resume_status=resume.get("bridge_status"))
@@ -258,6 +278,7 @@ def inspect_source_chain(
         check_scope="ONLY_EXPLICITLY_REQUESTED_ORIGINAL_SOURCES",
         active_task_id_declared=resume.get("active_task_id_declared"),
         latest_rule_commit_local_only=resume.get("rule_commit_local_only"),
+        rule_files_sha256_local_only=config["rule_files_sha256_local_only"],
         operational_reconciliation_required=bool(
             resume.get("operational_reconciliation_required")),
         unresolved_operation_count=resume.get("unresolved_operation_count"),
@@ -271,6 +292,8 @@ def inspect_source_chain(
             project_id=project_id, command=command, identifier=identifier,
             python_executable=python, env=env, timeout_seconds=timeout_seconds,
         )
+        if not source_snapshot_unchanged():
+            return _result(project_id, "SOURCE_INPUT_CHANGED_DURING_CHECK")
         if error:
             response["verification_status"] = "SOURCE_RECONCILIATION_REQUIRED"
             response["source_error_code"] = error
