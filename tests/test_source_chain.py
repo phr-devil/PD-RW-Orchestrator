@@ -296,3 +296,17 @@ def test_inconsistent_receipt_phase_fails_closed(tmp_path,monkeypatch):
     result=source_checks.inspect_source_chain("P19",operation_id="OP1",environment=env)
     assert result["verification_status"]=="SOURCE_RECONCILIATION_REQUIRED"
     assert result["operation"]["status"]=="OPERATION_FIELDS_INVALID"
+
+
+def test_public_source_check_schema_enforces_non_authoritative_output(tmp_path,monkeypatch):
+    from jsonschema import validate, ValidationError
+    root=Path(__file__).resolve().parents[1]
+    schema=json.loads((root/"schemas/source-check-v1.schema.json").read_text(encoding="utf-8"))
+    env=configured(tmp_path)
+    mock_source(monkeypatch)
+    real=source_checks.inspect_source_chain(
+        "P19",operation_id="OP1",run_id="RUN1",environment=env)
+    validate(instance=real,schema=schema)
+    forged={**real,"author_scope_verified":True}
+    with pytest.raises(ValidationError):
+        validate(instance=forged,schema=schema)

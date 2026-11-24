@@ -1,4 +1,4 @@
-# User guide — offline v0.2 decision and handoff prototype
+# User guide — v0.6.0 (R2-B read-only source checks; execution pilot separate)
 
 ~~~bash
 python -m pip install -e ".[dev]"
@@ -35,3 +35,18 @@ Only run this with a locally installed, authenticated native CLI and in an
 isolated environment. The external model may incur usage charges. No real
 scientific data, live agent chaining or write-enabled task is supported.
 See [CODEX_PILOT.md](CODEX_PILOT.md).
+
+## Original source check (requires trusted local PD-RW-Agent RC)
+
+~~~powershell
+$env:PDRW_AGENT_CONFIG = "D:\private\project-map.json"
+$env:PDRW_WORKFLOW_ROOT = "D:\local\Problem-Data-Research-Workflow"
+pdrw-orch pdrw source-check --project-id 19 --operation-id OP-001 --run-id RUN-001
+~~~
+
+Paths and IDs are placeholders. Only the supplied original operation and
+DEV/VAL Run metadata are checked. No author permission, scientific verdict
+or process restart can result. For task-specific advice, add
+`--with-pdrw --source-operation-id OP-001 --source-run-id RUN-001` to
+`advise`. The original task ID must match the source declaration.
+See [R2-B source checks](R2B_SOURCE_CHAIN.md).

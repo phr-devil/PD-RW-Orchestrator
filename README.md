@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.5.0 / R2-A scoped task contract, Codex capability handshake and local receipt checks. Real Windows operator and original PD-RW evidence acceptance remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.6.0 / R2-B original-source read-only cross-check (code + simulated CI). Actual Windows/M1-C host acceptance, authentic author grants and general Agent dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ## Mission
 
@@ -25,6 +25,22 @@ python -m pytest -q
 ~~~
 
 Mock execution never calls a model, downloads data, trains, edits scientific project files, reads SEALED or publishes. `DEMO_ONLY` is not a verified research Run.
+
+### Original source cross-check (R2-B; read-only)
+
+~~~powershell
+# After configuring the actual PD-RW-Agent RC environment and private map:
+pdrw-orch pdrw source-check --project-id 19 --operation-id OP-001 --run-id RUN-001
+# Optional offline ChatGPT handoff, with exact original source refs:
+pdrw-orch advise --task-file TASK.json --result-file RESULT.json --with-pdrw --source-operation-id OP-001 --source-run-id RUN-001
+~~~
+
+The original CLI checks only requested operation receipts and registered DEV/VAL
+Run byte/structure evidence. It does **not** authenticate author H6 scope,
+prove process liveness, permit retries, access SEALED or certify scientific
+claims. Conflicting source/Task identities cause reconciliation. See
+[original source check](docs/R2B_SOURCE_CHAIN.md) and
+[requirements traceability](docs/REQUIREMENTS_TRACEABILITY.md).
 
 ### Local PD-RW-Agent read-only recovery
 

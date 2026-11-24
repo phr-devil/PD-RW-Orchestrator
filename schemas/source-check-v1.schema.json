@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Original PD-RW source cross-check (read-only) v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project_id",
+    "verification_status",
+    "source_authority",
+    "project_identity_authenticated",
+    "author_scope_verified",
+    "execution_authorized",
+    "process_liveness_verified",
+    "scientific_validity_verified",
+    "restart_permitted",
+    "raw_project_content_returned"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "verification_status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_authority": {
+      "const": "ORIGINAL_PD_RW_AGENT_CLI_READ_ONLY_REPORT"
+    },
+    "project_identity_authenticated": {
+      "const": false
+    },
+    "author_scope_verified": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "process_liveness_verified": {
+      "const": false
+    },
+    "scientific_validity_verified": {
+      "const": false
+    },
+    "restart_permitted": {
+      "const": false
+    },
+    "raw_project_content_returned": {
+      "const": false
+    },
+    "resume_status": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scientific_resume_status": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "checks_performed": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "resume",
+          "operations",
+          "verify-run"
+        ]
+      }
+    },
+    "operation": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "run": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

@@ -24,3 +24,17 @@ Adapt these **illustrative paths** to local reality; the CLI does not try to loc
 - The bridge assumes a trusted operator-selected local Python environment; running untrusted Python packages is *not* a sandbox. The host must still implement real resource/path/network controls.
 
 No real user research project was accessed or accepted as part of this code slice. Integration tests simulate the upstream CLI JSON and error cases; actual WorkBuddy-MCP use remains unmeasured.
+
+## R2-B original-source operation and Run checks
+
+`pdrw-orch pdrw source-check --project-id ID [--operation-id OP] [--run-id RUN]`
+checks the exact private project registration and asks the established
+PD-RW-Agent RC CLI for at most one original operation and one original
+DEV/VAL Run. This is strictly read-only, returns bounded sanitized fields,
+blocks mismatched original task declarations, and never opens SEALED. A
+source-reported matching checksum is not a science verdict or permission.
+
+Use `pdrw-orch advise --with-pdrw --source-operation-id OP --source-run-id RUN`
+for conservative task-specific reconciliation. When no original Run/operation
+ID is supplied, the existing single-resume behavior remains unchanged, with
+no duplicate read-only calls. See [R2-B](R2B_SOURCE_CHAIN.md).

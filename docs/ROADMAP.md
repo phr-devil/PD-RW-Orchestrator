@@ -17,3 +17,12 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
 
 - **R2-A (v0.5.0, synthetic CI):** compiled scoped pilot Task+Policy actually sent to Codex CLI; bounded local task-contract and observed execution receipt with read-only hash checks; pilot-only provider capability acceptance; CLI preview/inspect without model calls. General routing and host authorization remain fail-closed.
 - **R2-B/M1-C (pending):** trusted PD-RW original evidence/grants from operator-controlled host, process liveness, real Agent credentials/usage and independent science review. Only then validate a general-purpose Agent execution path.
+
+- **R2-B v0.6.0 (code + synthetic CI):** exact original project-map membership,
+  single read-only resume, scoped original operation receipt and DEV/VAL Run
+  source cross-check, sanitized status/metadata, task-ID consistency and
+  fail-closed reconciliation in ChatGPT handoff. Not an authority to run DEV.
+- **M1-C operator machine (PENDING):** verify actual pinned PD-RW-Agent
+  RC/Skill/MCP environment, original author H6/H8 scope, original evidence
+  and real OS process liveness. No upgrade to real-project write-enabled tasks
+  or autonomous general routing without this separate verified host gate.
