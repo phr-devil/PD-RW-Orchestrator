@@ -36,7 +36,9 @@ precedence. Do not globally prohibit separately established lawful work.
    python -m pip install -e ".[host]". Do not overwrite an existing
    PD-RW-Agent checkout with a different version.
 2. Configure the original private project map, original workflow root
-   and disjoint private Orchestrator runtime directory.
+   and disjoint private Orchestrator runtime directory. The upstream
+   PDRW_RUNTIME_DIR must also be independent of the project, rules checkout
+   and the project map's parent directory (including ancestors/descendants).
 3. Run host audit with the actual project ID and selected PD-RW-Agent
    Python interpreter; use original operation/Run IDs when available.
 4. Run advise with the actual task/result files and --with-pdrw.

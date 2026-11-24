@@ -38,7 +38,8 @@ def test_actual_registered_run_and_receipt(tmp_path,monkeypatch):
          "metrics":{"MAE":0.1},"artifact_refs":refs}
     (root/"runs/run.json").write_text(json.dumps(run),encoding="utf-8")
     core("record","--root",str(root),"--kind","run","--artifact","runs/run.json")
-    config=tmp_path/"map.json"
+    config=tmp_path/"config"/"map.json"
+    config.parent.mkdir()
     config.write_text(json.dumps({"schema_version":1,"projects":{"P1":{
         "root":str(root),"expected_state_project_id":"synthetic-original"}}}),encoding="utf-8")
     monkeypatch.setenv("PDRW_AGENT_CONFIG",str(config))
