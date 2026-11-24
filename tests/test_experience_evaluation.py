@@ -210,3 +210,13 @@ def test_upstream_feedback_contract(tmp_path):
     checked=json.loads(proc.stdout)
     assert checked[0]["status"]=="RECEIVED_UNVERIFIED"
     assert checked[0]["automatic_lesson_update"] is False
+
+
+def test_missing_actual_usage_does_not_become_zero_cost():
+    p=pair()
+    p["with_experience"]["tokens"]=None
+    result=evaluate_pairs({"schema_version":"1.0","pairs":[p]})
+    assert result["total_tokens_delta"] is None
+    assert result["token_pairs_measured_declared"]==0
+    assert result["pairs"][0]["tokens_delta"] is None
+    assert result["critical_regression_count"]==1

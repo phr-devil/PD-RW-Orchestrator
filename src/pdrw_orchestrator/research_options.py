@@ -49,7 +49,7 @@ def compare_options(bundle: dict, manifest: dict, agents: tuple[AgentSpec, ...])
     seen, rows, eligible = set(), [], []
     decision = bundle["decision"]
     blocked = (decision["decision_type"] not in _RESEARCH_ACTIONS
-               or decision.get("authorization_status") == "DENIED"
+               or decision.get("authorization_status") in ("DENIED", "SCOPE_NOT_YET_VERIFIED", "NEW_GRANT_REQUIRED")
                or bool((bundle.get("source_context") or {}).get("operational_reconciliation_required"))
                or bool((bundle.get("source_context") or {}).get("unresolved_operation_count")))
     science = bundle["result"]["scientific_assessment"]
@@ -124,4 +124,4 @@ def compare_options(bundle: dict, manifest: dict, agents: tuple[AgentSpec, ...])
 def context_digest(bundle):
     """Hash stable decision inputs, excluding derived output paths/route options."""
     return digest({key:bundle[key] for key in (
-        "project_id","task_id","result","decision","next_guidance","source_context")})
+        "project_id","task_id","next_task","result","decision","next_guidance","source_context")})
