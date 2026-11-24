@@ -231,7 +231,7 @@ def compare_providers(manifest, agents):
                      **{k+"_delta":b[k]-a[k] if None not in (a[k],b[k]) else None for k in budget}})
     return {"status":"MATCHED_PROVIDER_DESCRIPTIVE_ONLY","provider_ids":ids,
             "capability":capability,"cohort_count":len(rows),
-            paired_rubric_count":sum(r["rubric_delta"] is not None for r in rows),
+            "paired_rubric_count":sum(r["rubric_delta"] is not None for r in rows),
             "within_budget_paired_rubric_count":sum(r["rubric_delta"] is not None and r["within_budget_declared"] for r in rows),
             "critical_regression_count":sum(r["critical_regression"] is True for r in rows),
             "completion_counts":{ident:sum(r["statuses"][i]=="COMPLETED" for r in rows) for i,ident in enumerate(ids)},
