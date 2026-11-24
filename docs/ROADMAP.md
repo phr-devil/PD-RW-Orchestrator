@@ -40,3 +40,11 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   checkout resources in editable mode without silently substituting a
   missing/changed source fixture. Validate ordinary Wheel install and the
   no-model `codex contract` CLI in an isolated directory on Windows/Linux.
+
+- **v0.7.0 M1-C read-only host tooling:** compare actual selected interpreter's
+  package metadata, source version and optional CLI file hash, then inspect
+  original sources and recheck installation drift. Local PID observation
+  compares creation time and executable-path fingerprint to an independently
+  recorded same-host baseline. No process-to-operation binding or original
+  H6 grant can be inferred; no kill/restart/automatic dispatch. CI exercises
+  an actual synthetic OS child process; real user's workstation is pending.

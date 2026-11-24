@@ -1,6 +1,19 @@
 # PD-RW-Orchestrator
 
-**Status: v0.6.2 / R2-B hardening and regular Wheel assets: bounded source checks, conservative receipts and installed-package CLI support. Real Windows operator-host M1-C acceptance remains pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.7.0 / M1-C read-only operator host audit and local PID observation. Original grant verification, process-to-operation binding and real operator acceptance remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+
+### M1-C host acceptance (no model calls)
+
+~~~powershell
+python -m pip install -e ".[host]"
+pdrw-orch host audit --project-id 19 --python "D:\PD-RW-Agent\.venv\Scripts\python.exe"
+# Only an operator-selected known PID:
+pdrw-orch host process --pid 12345
+~~~
+
+See [M1-C host acceptance](docs/M1C_HOST_ACCEPTANCE.md). These checks are
+read-only observations, not dispatch, original H6 permission, process
+ownership, or restart authorization.
 
 ## Mission
 

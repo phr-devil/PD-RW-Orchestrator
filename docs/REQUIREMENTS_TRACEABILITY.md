@@ -20,10 +20,15 @@ scoped; they are not transferable global permissions.
 | Task → next capability → specific provider → scoped instruction → standardized result → ChatGPT | Source-aware routing and handoff | Prototype; general live Agent registry disabled |
 | Experience uses ACE core; ExpeL / ReasoningBank comparisons, LangMem option | Only retrieve source-grounded conditional suggestions; never turn P4 into grants | Advisory integration stub; real retrieval and efficacy pending |
 | Separate two GitHub projects: Orchestrator and Experience | Do not build a homegrown experience distiller into this repo | Repository split retained |
-| Safe scheduling/recovery | Unknown old job means reconcile rather than auto-retry, while independent allowed read-only work can continue | Persistent intent + source reconciliation; OS liveness pending |
+| Safe scheduling/recovery | Unknown old job means reconcile rather than auto-retry, while independent allowed read-only work can continue | Persistent intent + source reconciliation; local PID sampling implemented, operation/PID binding and operator acceptance pending |
 | Acceptance and result interpretation | Independent review, reproducibility, strong baselines and evidence gradation | No claim of scientific validity or real-project execution |
 
 **Highest-priority remaining work:** operator-host acceptance of actual PD-RW
 version/map/state/receipt, authenticated source permission boundary, provider
 isolation and process liveness; then actual two-Agent task handoff. Do not
 introduce new framework modules without a demonstrated missing contract.
+
+M1-C update (v0.7.0): read-only operator installation and process checks are
+available. The upstream RC operation receipt has no trustworthy PID/start
+identity and its authorization state is UNVERIFIED. Do not infer original
+H6 grant, restart rights, or scientific validity from these observations.

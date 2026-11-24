@@ -65,3 +65,12 @@ For a production original project, supply actual private project mapping
 via `PDRW_AGENT_CONFIG` and PD-RW rule checkout via
 `PDRW_WORKFLOW_ROOT`. The Wheel does not include private project data,
 PD-RW-Agent or any real execution permission.
+
+## M1-C operator host audit (v0.7.0)
+
+Install with `python -m pip install -e ".[host]"` for optional psutil
+process observations. Run `pdrw-orch host audit --project-id ID --python PATH`
+with original private map and rules configured; specify actual operation/Run
+IDs and an optional expected task ID only when applicable. Observe an
+operator-selected PID with `pdrw-orch host process --pid PID`.
+See [M1-C host acceptance](M1C_HOST_ACCEPTANCE.md) for exact semantics.
