@@ -8,6 +8,8 @@ from pathlib import Path
 from .agent_result import normalize_result
 from .adapters.codex import probe_codex
 from .capabilities import accept_codex_pilot_probe
+from .contracts import compile_pilot_contract, contract_sha256
+from .host_evidence import inspect_pilot_receipt
 from .runtime.codex_pilot import pilot_task
 from .runtime.codex_pilot import run_codex_pilot
 from .controller import run_demo
@@ -19,7 +21,10 @@ from .policy import load_policy, compile_guidance
 from .models import TaskPacket
 from .next_task import policy_task_for_proposal
 from .registry import load_agents
-from .runtime.store import assess_recovery, inspect_plan, mark_intent_uncertain, stage_plan
+from .runtime.store import (
+    assess_recovery, inspect_plan, mark_intent_uncertain, stage_plan,
+    _identifier, _store_path,
+)
 
 
 def _repository_root() -> Path:
@@ -79,7 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
     schedule.add_argument("--with-pdrw", action="store_true", help="Opt-in read-only source recovery comparison")
     schedule.add_argument("--python", dest="pdrw_python", default=None)
     codex = commands.add_parser("codex", help="Opt-in, synthetic-fixture-only Codex CLI pilot")
-    codex.add_argument("action", choices=["probe", "pilot"])
+    codex.add_argument("action", choices=["probe", "contract", "inspect", "pilot"])
     codex.add_argument("--codex-bin", default=None, help="Operator-specified native Codex executable")
     codex.add_argument("--plan-id")
     codex.add_argument("--attempt-id")
@@ -151,13 +156,44 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "schedule":
             result = _schedule_action(args)
         elif args.command == "codex":
+            if args.action != "pilot" and (args.execute or args.ack_external_model):
+                raise ValueError("CODEX_READONLY_ACTION_REJECTS_EXECUTION_FLAGS")
             if args.action == "probe":
-                if args.execute or args.ack_external_model or args.plan_id or args.attempt_id:
-                    raise ValueError("CODEX_PROBE_DOES_NOT_ACCEPT_EXECUTION_FLAGS")
+                if args.plan_id or args.attempt_id:
+                    raise ValueError("CODEX_PROBE_DOES_NOT_ACCEPT_PLAN_IDS")
                 probe = probe_codex(args.codex_bin)
                 result = probe.to_dict()
                 result["pilot_capability"] = accept_codex_pilot_probe(
                     probe, load_agents(args.agents), pilot_task()).to_dict()
+            elif args.action == "contract":
+                if args.plan_id or args.attempt_id:
+                    raise ValueError("CONTRACT_PREVIEW_DOES_NOT_ACCEPT_PLAN_IDS")
+                task = pilot_task()
+                rules = load_policy(args.policy)
+                contract = compile_pilot_contract(task, compile_guidance(task, rules))
+                result = {
+                    "status": "PILOT_CONTRACT_PREVIEW_ONLY",
+                    "contract": contract,
+                    "contract_sha256": contract_sha256(contract),
+                    "model_invoked": False,
+                    "execution_authorized": False,
+                }
+            elif args.action == "inspect":
+                if args.codex_bin:
+                    raise ValueError("INSPECT_DOES_NOT_INVOKE_CODEX")
+                if not args.plan_id or not args.attempt_id:
+                    raise ValueError("PLAN_AND_ATTEMPT_ID_REQUIRED")
+                _identifier(args.plan_id, "plan_id")
+                _identifier(args.attempt_id, "attempt_id")
+                private_store = _store_path(create=False)
+                if private_store is None or not private_store.is_file():
+                    result = {"status": "NO_PLAN_STORE", "restart_permitted": False}
+                else:
+                    run_dir = private_store.parent / "codex-pilot" / args.plan_id / args.attempt_id
+                    result = inspect_pilot_receipt(
+                        run_dir, project_id="PILOT", task_id="CODEX-READ-001",
+                        attempt_id=args.attempt_id,
+                    )
             else:
                 if not (args.execute and args.ack_external_model):
                     raise ValueError("EXPLICIT_MODEL_OPT_IN_REQUIRED")
@@ -189,7 +225,11 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("command not implemented")
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if args.command == "codex":
-            return 0 if result.get("status") in ("CLI_CAPABILITY_PROBE_OK", "STRUCTURED_OUTPUT_RECEIVED") else 3
+            return 0 if result.get("status") in (
+                "CLI_CAPABILITY_PROBE_OK", "PILOT_CONTRACT_PREVIEW_ONLY",
+                "LOCAL_BYTES_MATCH_NOT_SCIENCE", "LOCAL_RECEIPT_MATCH_NO_OUTPUT",
+                "STRUCTURED_OUTPUT_RECEIVED",
+            ) else 3
         return 0 if result.get("bridge_status") in (None, "SOURCE_REVIEW_ONLY") else 3
     except (OSError, ValueError, TypeError, sqlite3.Error) as exc:
         print(json.dumps({"status": "ERROR", "reason": str(exc)}, ensure_ascii=False))
