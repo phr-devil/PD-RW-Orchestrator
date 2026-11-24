@@ -72,3 +72,32 @@ alignment; host-owned operation/process binding at dispatch; authenticated
 original grant adapter; isolated provider execution and real Agent handoff.
 CI uses mock source calls and a real synthetic local child process. It does
 not validate the user's actual project, invoke paid models or alter science.
+
+## v0.7.1 — host-owned synthetic Pilot lifecycle
+
+The explicitly opted-in, fixed synthetic Codex Pilot now writes exclusive
+local event records: `launch-intent.json`, `child-started.json`, and
+`child-ended.json` (launch failure has no start event). They link the
+existing reserved SQLite intent, project/task/plan/attempt IDs, contract
+SHA-256 and prior event hash. The launch record precedes subprocess creation;
+the start record includes the direct child PID and an OS identity sample if
+available. The end record precedes output normalization. A timeout attempts
+to kill and reap **only the direct child created by the same runner**;
+descendant processes, model-server work and external charges are not verified.
+An interrupted/partial journal is unresolved and never permits auto-retry.
+
+`pdrw-orch codex inspect --plan-id ID --attempt-id ID` checks the exact
+registered intent, contract and receipt plus available process lifecycle.
+The new receipt requires the corresponding recorded child outcome/exit code.
+Legacy receipts remain byte-checkable, not retroactively bound to a process.
+Oversized/unreadable output leaves a failure receipt rather than erasing
+observed execution. Local journal hash consistency is not authentication of
+all user-controlled local files. A directory or database redirect is rejected
+at controlled path components; trusted private runtime root and host isolation
+remain necessary.
+
+No new scientific authorization ledger, general command execution, arbitrary
+PID cancellation, or new Agent provider is enabled. The upstream original
+H6 authorizer and real-project operation/PID binding are still unavailable.
+CI runs actual synthetic Python children, including timeout/launch failure,
+but neither calls a model nor uses original private research data.

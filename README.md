@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.7.0 / M1-C read-only operator host audit and local PID observation. Original grant verification, process-to-operation binding and real operator acceptance remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.7.1 / M1-C synthetic Pilot direct-child lifecycle and exact intent reconciliation. Original PD-RW grants, real-project process binding and multi-Agent dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ### M1-C host acceptance (no model calls)
 

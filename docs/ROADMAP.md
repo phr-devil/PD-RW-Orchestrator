@@ -48,3 +48,12 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   recorded same-host baseline. No process-to-operation binding or original
   H6 grant can be inferred; no kill/restart/automatic dispatch. CI exercises
   an actual synthetic OS child process; real user's workstation is pending.
+
+- **v0.7.1 Pilot lifecycle:** exclusive attempt-bound launch/start/end
+  records, direct-child timeout cleanup, exact intent lookup and consistency
+  checks with the final host receipt; bounded output read, runtime path
+  redirect rejection. Synthetic child process CI, not real project dispatch.
+  No original authorization or descendant/process-tree termination claim.
+  Next prerequisite: actual M1-C workstation acceptance and a trusted
+  upstream grant/operation binding adapter; then real isolated read-only
+  two-Agent handoff instead of adding further mock-only infrastructure.
