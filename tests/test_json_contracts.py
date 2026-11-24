@@ -2,7 +2,8 @@ import json
 from pathlib import Path
 
 import pytest
-from jsonschema import Draft202012Validator, RefResolver, validate
+from jsonschema import Draft202012Validator, validate
+from referencing import Registry, Resource
 
 from pdrw_orchestrator.controller import run_demo
 from pdrw_orchestrator.models import TaskPacket
@@ -36,9 +37,16 @@ def test_handoff_and_registry_contracts():
     rules = load_policy(ROOT / "policies/user/research-guidance.example.yaml")
     agents = load_agents(ROOT / "configs/agents.example.yaml")
     report = run_demo(demo_plan(), agents, rules)
-    ref = RefResolver(base_uri=SCHEMAS.as_uri() + "/", referrer=schema("handoff.schema.json"))
+    # Resolve file-relative $ref without deprecated RefResolver or network I/O.
+    handoff_schema = schema("handoff.schema.json")
+    handoff_schema["$id"] = (SCHEMAS / "handoff.schema.json").as_uri()
+    registry = Registry().with_resource(
+        (SCHEMAS / "result.schema.json").as_uri(),
+        Resource.from_contents(schema("result.schema.json")),
+    )
+    validator = Draft202012Validator(handoff_schema, registry=registry)
     for handoff in report.handoffs:
-        Draft202012Validator(schema("handoff.schema.json"), resolver=ref).validate(portable(handoff))
+        validator.validate(portable(handoff))
     for agent in agents:
         validate(instance={
             "id": agent.id, "adapter": agent.adapter,
