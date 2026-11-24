@@ -15,6 +15,7 @@ from .models import RESULT_STATUSES, ResultPacket, TaskPacket
 _RESULT_VERSION = "2.0"
 _REPORTED_CLAIMS = frozenset({"NOT_ASSESSED", "VALID", "INVALID", "UNCERTAIN"})
 _REPORTED_PROTOCOLS = frozenset({"NOT_ASSESSED", "VALID", "INVALID", "UNCERTAIN"})
+_REPORTED_OUTCOMES = frozenset({"NOT_ASSESSED", "POSITIVE", "NEGATIVE", "MIXED", "INCONCLUSIVE", "INVALID"})
 _DELIVERABLE_FIELDS = ("code_refs", "run_refs", "evidence_refs", "report_refs")
 _MAX_ITEMS = 32
 _MAX_TEXT = 3000
@@ -85,6 +86,7 @@ def normalize_result(raw: Mapping[str, Any] | ResultPacket, task: TaskPacket) ->
         budget_exhausted = False
         reported_claim = "NOT_ASSESSED"
         reported_protocol = "NOT_ASSESSED"
+        reported_outcome = "NOT_ASSESSED"
         if raw.get("scientific_verified") is True:
             warnings.append("UNTRUSTED_SCIENCE_ATTESTATION_IGNORED")
     else:
@@ -112,19 +114,22 @@ def normalize_result(raw: Mapping[str, Any] | ResultPacket, task: TaskPacket) ->
                               "next_action_candidates", maximum=8)
         science = raw.get("scientific_assessment", {})
         if not isinstance(science, dict) or set(science) - {
-            "claim_status", "protocol_status", "review_required",
+            "claim_status", "protocol_status", "review_required", "outcome",
         }:
             raise ValueError("INVALID_SCIENTIFIC_ASSESSMENT")
         reported_claim = science.get("claim_status", "NOT_ASSESSED")
         reported_protocol = science.get("protocol_status", "NOT_ASSESSED")
-        if reported_claim not in _REPORTED_CLAIMS or reported_protocol not in _REPORTED_PROTOCOLS:
+        reported_outcome = science.get("outcome", "NOT_ASSESSED")
+        if (not isinstance(reported_claim, str) or reported_claim not in _REPORTED_CLAIMS
+                or not isinstance(reported_protocol, str) or reported_protocol not in _REPORTED_PROTOCOLS
+                or not isinstance(reported_outcome, str) or reported_outcome not in _REPORTED_OUTCOMES):
             raise ValueError("INVALID_REPORTED_SCIENTIFIC_STATUS")
         if "review_required" in science and type(science["review_required"]) is not bool:
             raise ValueError("INVALID_REVIEW_REQUIRED")
         if (reported_claim != "NOT_ASSESSED" or reported_protocol != "NOT_ASSESSED"
                 or science.get("review_required") is False):
             warnings.append("SELF_REPORTED_SCIENCE_NOT_ATTESTED")
-    if status not in RESULT_STATUSES:
+    if not isinstance(status, str) or status not in RESULT_STATUSES:
         raise ValueError("INVALID_EXECUTION_STATUS")
     if (raw.get("authorization_verified") is True or
             raw.get("scientific_completion_verified") is True):
@@ -151,6 +156,7 @@ def normalize_result(raw: Mapping[str, Any] | ResultPacket, task: TaskPacket) ->
         "scientific_assessment": {
             "reported_claim_status": reported_claim,
             "reported_protocol_status": reported_protocol,
+            "reported_outcome": reported_outcome,
             "effective_claim_status": "NOT_ASSESSED",
             "effective_protocol_status": "NOT_ASSESSED",
             "evidence_status": "REFERENCES_UNVERIFIED" if refs_count else "NO_REFERENCES",

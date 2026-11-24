@@ -52,6 +52,21 @@ def propose_next_task(previous: TaskPacket, normalized: dict[str, Any], decision
             + previous.task_type + " task under the original scope; "
             "do not repeat the work or dispatch automatically."
         )
+    # A self-reported outcome changes the review question, never the verdict.
+    if kind == "INDEPENDENT_REVIEW" and normalized["execution"]["reported_status"] in ("COMPLETED", "NEEDS_REVIEW"):
+        science = normalized.get("scientific_assessment", {})
+        outcome = science.get("reported_outcome", "NOT_ASSESSED")
+        if science.get("reported_protocol_status") == "INVALID":
+            outcome = "INVALID"
+        focus = {
+            "INVALID": "Investigate reported method invalidity or leakage first; do not interpret the reported score as scientific evidence. Identify the cheapest lawful repair or existing evidence.",
+            "NEGATIVE": "Check whether the reported negative is valid under matched baselines, power and protocol; distinguish unsupported premise from invalid experiment. Reuse existing runs; assess narrower contributions before proposing further training or an H8 decision.",
+            "POSITIVE": "Check the reported gain against strong matched baselines, independent units, leakage controls and closest prior work; identify the single decisive missing evidence rather than routine tuning.",
+            "MIXED": "Check whether the reported heterogeneous effects have a reproducible, pre-specified explanation or narrower claim; distinguish subgroup noise from real boundary conditions.",
+            "INCONCLUSIVE": "Identify the uncertainty that prevents a decision and propose the cheapest legal discriminating check; do not treat unknown as a negative.",
+        }.get(outcome)
+        if focus:
+            objective += " Unverified outcome focus: " + focus
     # Attempt and decision-specific stable proposal identity prevents branch
     # collisions without copying unbounded old task IDs into new identifiers.
     identity = "|".join((

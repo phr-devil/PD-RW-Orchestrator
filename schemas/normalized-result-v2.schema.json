@@ -185,6 +185,16 @@
         },
         "independent_review_required": {
           "const": true
+        },
+        "reported_outcome": {
+          "enum": [
+            "NOT_ASSESSED",
+            "POSITIVE",
+            "NEGATIVE",
+            "MIXED",
+            "INCONCLUSIVE",
+            "INVALID"
+          ]
         }
       }
     },

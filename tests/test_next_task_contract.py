@@ -130,3 +130,39 @@ def test_readonly_optin_not_default(monkeypatch, capsys):
           "--result-file", str(ROOT/"examples/agent-result-v2.example.json")]
     assert main(args)==0
     assert json.loads(capsys.readouterr().out)["source_context"] is None
+
+
+
+@pytest.mark.parametrize("outcome,protocol,needle", [
+    ("NEGATIVE","VALID","unsupported premise"),
+    ("POSITIVE","VALID","single decisive missing evidence"),
+    ("MIXED","VALID","heterogeneous effects"),
+    ("INCONCLUSIVE","UNCERTAIN","do not treat unknown as a negative"),
+    ("NEGATIVE","INVALID","method invalidity"),
+])
+def test_reported_outcome_refines_review_without_authorizing_it(outcome,protocol,needle):
+    t = TaskPacket(task_id="T",project_id="P",task_type="code_experiment",objective="Evaluate")
+    n = normalize_result({
+        "schema_version":"2.0","project_id":"P","task_id":"T","agent_id":"aide",
+        "attempt_id":"A","execution":{"status":"COMPLETED"},
+        "deliverables":{"run_refs":["run"]},
+        "scientific_assessment":{"outcome":outcome,"protocol_status":protocol},
+    },t)
+    d = decide_next(t,n,compile_guidance(t,()),AGENTS)
+    assert d["decision_type"]=="INDEPENDENT_REVIEW"
+    assert needle in d["next_task"]["objective"]
+    assert d["can_auto_dispatch"] is False
+    assert n["scientific_assessment"]["effective_claim_status"]=="NOT_ASSESSED"
+    validate(n,json.loads((ROOT/"schemas/normalized-result-v2.schema.json").read_text()))
+
+
+def test_engineering_failure_is_not_scientific_negative():
+    t = TaskPacket(task_id="T",project_id="P",task_type="code_experiment",objective="Evaluate")
+    n = normalize_result({
+        "schema_version":"2.0","project_id":"P","task_id":"T","agent_id":"aide",
+        "attempt_id":"A","execution":{"status":"FAILED"},
+        "scientific_assessment":{"outcome":"NEGATIVE"},
+    },t)
+    d = decide_next(t,n,compile_guidance(t,()),AGENTS)
+    assert d["decision_type"]=="REVISE_PLAN"
+    assert "Unverified outcome focus" not in d["next_task"]["objective"]
