@@ -22,7 +22,7 @@ from .decision import decide_next
 from .instruction import build_bundle
 from .integrations.pdrw import inspect_resume, pdrw_status
 from .integrations.experience import retrieve_for_task
-from .experience_evaluation import screen_lessons, feedback_candidate, evaluate_pairs, digest
+from .experience_evaluation import screen_lessons, feedback_candidate, evaluate_pairs, digest as evaluation_digest
 from .integrations.source_checks import inspect_source_chain
 from .planner import demo_plan
 from .policy import load_policy, compile_guidance
@@ -402,10 +402,10 @@ def main(argv: list[str] | None = None) -> int:
                 treatment = result["agent_instruction_draft"]
                 result["experience_ablation"] = {
                     "status": "MATCHED_DRAFTS_ONLY" if retrieval["selected_experience_rule_ids"] else "NO_EXPERIENCE_TREATMENT_AVAILABLE",
-                    "common_context_sha256": digest({"task": task.to_dict(), "result": normalized,
+                    "common_context_sha256": evaluation_digest({"task": task.to_dict(), "result": normalized,
                         "decision": decision, "source_context": context, "base_guidance": base_next.to_dict()}),
-                    "without_experience": {"instruction": control, "sha256": digest(control)},
-                    "with_experience": {"instruction": treatment, "sha256": digest(treatment)},
+                    "without_experience": {"instruction": control, "sha256": evaluation_digest(control)},
+                    "with_experience": {"instruction": treatment, "sha256": evaluation_digest(treatment)},
                     "selected_experience_rule_ids": retrieval["selected_experience_rule_ids"],
                     "instruction_character_delta": len(treatment)-len(control),
                     "model_calls_requested": 0, "execution_authorized": False,
