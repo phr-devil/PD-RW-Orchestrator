@@ -25,7 +25,7 @@ def case(ident,status="COMPLETED"):
 
 
 def cohort():
-    return {"schema_version":"1.0","cases":[case("positive"),case("failed","FAILED"),
+    return {"schema_version":"1.0","reference_commitment_sha256":None,"cases":[case("positive"),case("failed","FAILED"),
         {**case("missing"),"input_status":"UNAVAILABLE","inputs":None}]}
 
 
@@ -57,7 +57,7 @@ def test_future_and_naive_timestamps_block_replay():
 
 
 def test_unknown_reference_not_failure_and_replay_binding():
-    result=replay({"schema_version":"1.0","cases":[case("one")]},(),AGENTS)
+    result=replay({"schema_version":"1.0","reference_commitment_sha256":None,"cases":[case("one")]},(),AGENTS)
     ref={"schema_version":"1.0","replay_sha256":digest(result),"cases":[{
         "case_id":"one","case_sha256":result["cases"][0]["case_sha256"],
         "reference_status":"UNKNOWN","acceptable_decisions":[],"evidence_refs":["missing-review"]}]}
@@ -114,3 +114,26 @@ def test_benchmark_cli_replay(tmp_path,capsys):
     p.write_text(json.dumps(cohort()),encoding="utf-8")
     assert main(["benchmark","replay","--manifest",str(p)])==0
     assert json.loads(capsys.readouterr().out)["cases"][0]["decision_type"]=="INDEPENDENT_REVIEW"
+
+
+def test_reference_commitment_cannot_change_after_replay():
+    m=cohort()
+    refs=[{"case_id":r["case_id"],"case_sha256":digest(r),
+           "reference_status":"REVIEWED_DECLARED","acceptable_decisions":["INDEPENDENT_REVIEW"],
+           "evidence_refs":["review-ref"]} for r in m["cases"]]
+    m["reference_commitment_sha256"]=digest(refs)
+    result=replay(m,(),AGENTS)
+    ref={"schema_version":"1.0","replay_sha256":digest(result),"cases":refs}
+    assert assess(result,ref)["reference_commitment_matched"] is True
+    refs[0]["acceptable_decisions"]=["HOLD"]
+    with pytest.raises(ValueError,match="REFERENCE_COMMITMENT_MISMATCH"):
+        assess(result,ref)
+
+
+def test_unknown_budget_never_counts_as_matched_budget_quality():
+    m=providers()
+    m["cases"][0]["arms"][1]["tokens"]=None
+    result=compare_providers(m,AGENTS)
+    assert result["paired_rubric_count"]==1
+    assert result["within_budget_paired_rubric_count"]==0
+    assert result["pairs"][0]["budget_unknown"]==["b"]

@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.10.0 / M4-A evidence-bound research route comparison and unknown-aware resource accounting. Actual scientific efficacy, original grants and real-project dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.10.1 / M4-B historical decision replay and matched provider assessment. Real historical inputs, actual provider runs, original grants and general research dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ### M1-C host acceptance (no model calls)
 
@@ -49,6 +49,14 @@ to compare bounded, evidence-linked operator-declared research options.
 A Pareto frontier preserves tradeoffs rather than choosing a topic or
 granting execution; matching Agent capability is a declared candidate,
 not verified availability or performance. See [M4-A](docs/M4_ROUTE_COMPARISON.md).
+
+### M4-B: offline historical and provider evaluation
+
+`pdrw-orch benchmark replay --manifest CASES.json` runs the current
+decision engine against explicitly time-bounded historical inputs.
+`benchmark assess` compares a separate reference assessment;
+`benchmark providers` compares two declared provider versions on a matched
+cohort. No live project reads or model calls. See [M4-B](docs/M4_BENCHMARK.md).
 
 ## Mission
 

@@ -88,3 +88,11 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   No automated route selection, new author grant or actual performance claim.
   Next use original time-bounded historical cases and matched provider
   evaluations on the operator host instead of extrapolating synthetic tests.
+
+- **v0.10.1 M4-B:** offline replay of the actual decision engine against
+  declared historical cutoff inputs, separate reference commitments and
+  complete-cohort scoring; matched provider/config/protocol comparison
+  preserving failed/unknown cases and unknown cost. No historical efficacy,
+  independent review authentication, or real Agent readiness inferred.
+  Operator must recover original frozen inputs and run actual authorized
+  comparisons; no more mock-only framework expansion is needed.

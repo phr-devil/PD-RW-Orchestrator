@@ -40,7 +40,10 @@ def replay(manifest, rules, agents):
     References and availability times are declarations; no original project,
     provider, Experience catalog or current live source is consulted.
     """
-    _check(manifest, "schema_version cases")
+    _check(manifest, "schema_version cases reference_commitment_sha256")
+    commitment = manifest["reference_commitment_sha256"]
+    if commitment is not None:
+        _sha(commitment)
     if manifest["schema_version"] != "1.0":
         raise ValueError("BENCHMARK_VERSION_INVALID")
     _rows(manifest["cases"])
@@ -81,6 +84,7 @@ def replay(manifest, rules, agents):
                        "execution_authorized":False})
     return {"status":"HISTORICAL_REPLAY_DECLARED_INPUTS_ONLY",
             "engine_version":__version__, "manifest_sha256":digest(manifest),
+            "reference_commitment_sha256":commitment,
             "policy_sha256":digest([asdict(r) for r in rules]),
             "registry_sha256":digest([asdict(a) for a in agents]),
             "cases":output, "historical_availability_verified":False,
@@ -97,6 +101,9 @@ def assess(replayed, reference):
         raise ValueError("BENCHMARK_REPLAY_BINDING_MISMATCH")
     actual = replayed["cases"]
     expected = reference["cases"]
+    commitment = replayed.get("reference_commitment_sha256")
+    if commitment is not None and commitment != digest(expected):
+        raise ValueError("BENCHMARK_REFERENCE_COMMITMENT_MISMATCH")
     if set(_rows(actual)) != set(_rows(expected)):
         raise ValueError("BENCHMARK_COHORT_MISMATCH")
     by_id = {r["case_id"]:r for r in expected}
@@ -115,6 +122,9 @@ def assess(replayed, reference):
                 or not choices or len(choices)>len(DECISION_TYPES)
                 or any(not isinstance(c,str) or c not in DECISION_TYPES for c in choices)):
             raise ValueError("BENCHMARK_REFERENCE_INVALID")
+        if item["status"] not in ("REPLAYED","INPUT_UNAVAILABLE","INPUT_REJECTED") or (
+                item["status"] == "REPLAYED" and item["decision_type"] not in DECISION_TYPES):
+            raise ValueError("BENCHMARK_REPLAY_ROW_INVALID")
         if item["status"] != "REPLAYED":
             status = item["status"]
         elif ref["reference_status"] == "UNKNOWN":
@@ -130,6 +140,8 @@ def assess(replayed, reference):
             "match_rate_assessed":matches/assessed if assessed else None,
             "match_fraction_full_cohort":matches/len(rows),"cases":rows,
             "replay_sha256":digest(replayed),"reference_sha256":digest(reference),
+            "reference_commitment_matched": commitment is not None,
+            "reference_commitment_time_verified":False,
             "reference_independence_verified":False,"scientific_efficacy_verified":False,
             "execution_authorized":False}
 
@@ -184,7 +196,12 @@ def compare_providers(manifest, agents):
                     raise ValueError("BENCHMARK_RESULT_REF_REUSED")
                 used_refs.add(ref)
             elif arm["result_ref"] is not None:
-                _text(arm["result_ref"])
+                if arm["status"] == "NOT_RUN":
+                    raise ValueError("BENCHMARK_NOT_RUN_RESULT_CONFLICT")
+                ref = _text(arm["result_ref"])
+                if ref in used_refs:
+                    raise ValueError("BENCHMARK_RESULT_REF_REUSED")
+                used_refs.add(ref)
             for key in budget:
                 value = arm[key]
                 if value is not None and (type(value) is not int or value<0):
@@ -203,16 +220,19 @@ def compare_providers(manifest, agents):
         a,b = arms
         over = [arm["agent_id"] for arm in arms if any(
             arm[k] is not None and arm[k]>budget[k] for k in budget)]
+        unknown_budget = [arm["agent_id"] for arm in arms if any(arm[k] is None for k in budget)]
         delta = None
         if not over and a["rubric"] is not None and b["rubric"] is not None:
             delta = {k:b["rubric"][k]-a["rubric"][k] for k in _RUBRIC}
         rows.append({"case_id":case["case_id"],"statuses":[a["status"],b["status"]],
-                     "budget_exceeded_declared":over,"rubric_delta":delta,
+                     "budget_exceeded_declared":over,"budget_unknown":unknown_budget,
+                     "within_budget_declared":not over and not unknown_budget,"rubric_delta":delta,
                      "critical_regression": (any(delta[k]<0 for k in _RUBRIC[:2]) if delta is not None else None),
                      **{k+"_delta":b[k]-a[k] if None not in (a[k],b[k]) else None for k in budget}})
     return {"status":"MATCHED_PROVIDER_DESCRIPTIVE_ONLY","provider_ids":ids,
             "capability":capability,"cohort_count":len(rows),
-            "paired_rubric_count":sum(r["rubric_delta"] is not None for r in rows),
+            paired_rubric_count":sum(r["rubric_delta"] is not None for r in rows),
+            "within_budget_paired_rubric_count":sum(r["rubric_delta"] is not None and r["within_budget_declared"] for r in rows),
             "critical_regression_count":sum(r["critical_regression"] is True for r in rows),
             "completion_counts":{ident:sum(r["statuses"][i]=="COMPLETED" for r in rows) for i,ident in enumerate(ids)},
             "pairs":rows,"manifest_sha256":digest(manifest),
