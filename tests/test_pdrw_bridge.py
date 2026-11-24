@@ -185,3 +185,24 @@ def test_resume_subprocess_does_not_capture_stdout_in_ram(tmp_path, monkeypatch)
     assert "capture_output" not in seen
     assert seen["stderr"] == subprocess.DEVNULL
     assert hasattr(seen["stdout"], "fileno")
+
+
+def test_resume_keeps_bounded_source_anchors_and_independent_review_hint(tmp_path,monkeypatch):
+    env=configured(tmp_path)
+    packet={"status":"NEEDS_OPERATIONAL_RECONCILIATION","project_id":"19",
+            "scientific_context":{"latest_valid_run_id_declared":"RUN-12"},
+            "operation_context":{"host_reconciliation_required":True,
+                                 "operational_reconciliation_required":True},
+            "next_action_hint":{"independent_permitted_read_only_review_allowed":True}}
+    def fake(*args,**kw):
+        kw["stdout"].write(json.dumps(packet).encode())
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(subprocess,"run",fake)
+    out=inspect_resume("19",environment=env)
+    assert out["latest_valid_run_id_declared"]=="RUN-12"
+    assert out["host_reconciliation_required_declared"] is True
+    assert out["independent_permitted_read_only_review_hint"] is True
+    assert out["independent_review_authorization_verified"] is False
+    assert out["restart_permitted"] is False
+    packet["scientific_context"]["latest_valid_run_id_declared"]="sealed-run"
+    assert inspect_resume("19",environment=env)["latest_valid_run_id_declared"] is None

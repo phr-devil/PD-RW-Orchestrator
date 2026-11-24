@@ -106,6 +106,17 @@ def build_bundle(task: TaskPacket, normalized: dict[str, Any],
                  source_context: dict | None = None,
                  previous_execution: dict[str, Any] | None = None,
                  host_artifact_review: dict[str, Any] | None = None) -> dict:
+    report = build_chatgpt_report(task, normalized, decision, guidance, next_guidance=next_guidance)
+    if source_context is not None:
+        keys = ("bridge_status", "source_status", "source_chain_status",
+                "latest_valid_run_id_declared", "unresolved_operation_count",
+                "host_reconciliation_required_declared", "pending_scientific_review_count")
+        report += "\n## Original-source status (reported only)\n" + _literal({
+            key: source_context.get(key) for key in keys}) + "\n"
+        if source_context.get("independent_permitted_read_only_review_hint") is True:
+            report += ("Upstream permits considering independent read-only work within existing scope; "
+                       "do not treat the affected old job as a global prohibition. "
+                       "Verify original scope and independence separately. No old-job restart or new permission.\n")
     return {
         "schema_version": "1.1", "mode": "ADVISORY_DRAFT_ONLY",
         "project_id": task.project_id, "task_id": task.task_id,
@@ -129,8 +140,7 @@ def build_bundle(task: TaskPacket, normalized: dict[str, Any],
         },
         "agent_instruction_draft": build_instruction(
             task, normalized, decision, guidance, next_guidance=next_guidance),
-        "chatgpt_handoff_md": build_chatgpt_report(
-            task, normalized, decision, guidance, next_guidance=next_guidance),
+        "chatgpt_handoff_md": report,
         "dispatch_performed": False, "authorization_verified": False,
         "scientific_completion_verified": False,
     }

@@ -371,3 +371,27 @@ def test_source_chain_preserves_pending_scientific_review_count(tmp_path, monkey
     mock_source(monkeypatch, resume=source_resume(pending_scientific_review_count=2))
     result = source_checks.inspect_source_chain("P19", environment=env)
     assert result["pending_scientific_review_count"] == 2
+
+
+@pytest.mark.parametrize("receipt", [
+    {**operation(), "status": "NO_RECEIPTS"},
+    {**operation(), "status": "RECEIPTS_NOT_CONFIGURED"},
+    {"status":"RECEIPTS_FOUND", "operations":[]},
+    operation(recovery_class="VERIFY_ACTUAL_EXECUTION"),
+])
+def test_contradictory_operation_rows_fail_closed(tmp_path,monkeypatch,receipt):
+    env=configured(tmp_path)
+    mock_source(monkeypatch,{"operations":receipt})
+    out=source_checks.inspect_source_chain("P19",operation_id="OP1",environment=env)
+    assert out["verification_status"]=="SOURCE_RECONCILIATION_REQUIRED"
+
+
+def test_protocol_identity_retained_not_grant(tmp_path,monkeypatch):
+    env=configured(tmp_path)
+    mock_source(monkeypatch)
+    out=source_checks.inspect_source_chain("P19",run_id="RUN1",environment=env)
+    assert out["run"]["protocol_id_declared"]=="PROTO-v1"
+    assert out["author_scope_verified"] is False
+    mock_source(monkeypatch,{"verify-run":run(protocol_id_declared=None)})
+    out=source_checks.inspect_source_chain("P19",run_id="RUN1",environment=env)
+    assert out["verification_status"]=="SOURCE_RECONCILIATION_REQUIRED"

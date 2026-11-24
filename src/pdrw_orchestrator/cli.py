@@ -61,7 +61,11 @@ def _bounded_json_file(path: str, label: str) -> dict:
     source = Path(path)
     if not source.is_file() or source.stat().st_size > 128 * 1024:
         raise ValueError(f"{label}_FILE_MISSING_OR_TOO_LARGE")
-    obj = json.loads(source.read_text(encoding="utf-8"))
+    with source.open("rb") as stream:
+        raw = stream.read(128 * 1024 + 1)
+    if len(raw) > 128 * 1024:
+        raise ValueError(f"{label}_FILE_MISSING_OR_TOO_LARGE")
+    obj = json.loads(raw.decode("utf-8-sig"))
     if not isinstance(obj, dict):
         raise ValueError(f"{label}_OBJECT_REQUIRED")
     return obj
@@ -367,6 +371,10 @@ def main(argv: list[str] | None = None) -> int:
                     "project_id": original_check.get("project_id"),
                     "source_status": original_check.get("resume_status"),
                     "pending_scientific_review_count": original_check.get("pending_scientific_review_count", 0),
+                    "latest_valid_run_id_declared": original_check.get("latest_valid_run_id_declared"),
+                    "host_reconciliation_required_declared": original_check.get("host_reconciliation_required_declared"),
+                    "independent_permitted_read_only_review_hint": original_check.get("independent_permitted_read_only_review_hint") is True,
+                    "independent_review_authorization_verified": False,
                     "unresolved_operation_count": original_check.get("unresolved_operation_count"),
                     "operational_reconciliation_required": original_check.get(
                         "operational_reconciliation_required"),

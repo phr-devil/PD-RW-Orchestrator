@@ -127,9 +127,16 @@ def inspect_resume(
     declared = scientific.get("active_task_id_declared")
     if not isinstance(declared, str) or not _PROJECT_ID.fullmatch(declared):
         declared = None
+    latest_run = scientific.get("latest_valid_run_id_declared")
+    if (not isinstance(latest_run, str) or not _PROJECT_ID.fullmatch(latest_run)
+            or any(x in latest_run.casefold() for x in ("sealed", "holdout", "confirmation"))):
+        latest_run = None
     unresolved = operations.get("unresolved", [])
     pending = operations.get("pending_scientific_review_count", 0)
     reconciliation = operations.get("operational_reconciliation_required", False)
+    host_reconciliation = operations.get("host_reconciliation_required")
+    if type(host_reconciliation) is not bool:
+        host_reconciliation = None
     if (not isinstance(unresolved, list) or len(unresolved) > 6
             or type(pending) is not int or not 0 <= pending <= 100000
             or type(reconciliation) is not bool):
@@ -159,6 +166,11 @@ def inspect_resume(
         "source_status": source_status,
         "scientific_resume_status": scientific_resume_status,
         "active_task_id_declared": declared,
+        "latest_valid_run_id_declared": latest_run,
+        "host_reconciliation_required_declared": host_reconciliation,
+        "independent_permitted_read_only_review_hint": (
+            next_hint.get("independent_permitted_read_only_review_allowed") is True),
+        "independent_review_authorization_verified": False,
         "unresolved_operation_count": len(unresolved),
         "pending_scientific_review_count": pending,
         "operational_reconciliation_required": reconciliation,

@@ -37,3 +37,33 @@ jobs:
       - run: python -m pytest -q tests/test_experience_retrieval.py tests/test_experience_evaluation.py
         env:
           PDRW_EXPERIENCE_TEST_ROOT: upstream-experience
+
+  pdrw-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: phr-devil/PD-RW-Agent
+          ref: 9177b6eb822aaa0d1482ef40f54369a8612c42dd
+          path: upstream-agent
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: phr-devil/Problem-Data-Research-Workflow
+          ref: d4056fc10af89c3ecfd41ece15c55440d21c33e1
+          path: upstream-rules
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e ".[dev]" ./upstream-agent
+      - run: python -m pytest -q tests/test_pdrw_live_contract.py
+        env:
+          PDRW_ORCH_TEST_RULE_ROOT: upstream-rules

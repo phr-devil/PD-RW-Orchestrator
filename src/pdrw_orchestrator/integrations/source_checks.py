@@ -60,7 +60,10 @@ def _source_settings(project_id: str, env: dict) -> tuple[dict, str | None]:
                 or not (workflow_root / "AGENTS.md").is_file()
                 or not (workflow_root / "WORKFLOW.md").is_file()):
             return {}, "SOURCE_CONFIG_UNAVAILABLE"
-        raw = config_path.read_bytes()
+        with config_path.open("rb") as stream:
+            raw = stream.read(_MAX_CONFIG + 1)
+        if len(raw) > _MAX_CONFIG:
+            return {}, "SOURCE_CONFIG_UNAVAILABLE"
         # Sample exact rule bytes alongside the private mapping. A later
         # fingerprint mismatch blocks mixed-version multi-call results.
         workflow_bytes = []
@@ -68,7 +71,11 @@ def _source_settings(project_id: str, env: dict) -> tuple[dict, str | None]:
             file = workflow_root / name
             if file.stat().st_size > 2 * 1024 * 1024:
                 return {}, "SOURCE_RULE_FILE_OVERSIZE"
-            workflow_bytes.append(file.read_bytes())
+            with file.open("rb") as stream:
+                data = stream.read(2 * 1024 * 1024 + 1)
+            if len(data) > 2 * 1024 * 1024:
+                return {}, "SOURCE_RULE_FILE_OVERSIZE"
+            workflow_bytes.append(data)
         registry = json.loads(raw.decode("utf-8-sig"))
         if (not isinstance(registry, dict)
                 or registry.get("schema_version") != 1
@@ -140,6 +147,8 @@ def _operation_check(payload: dict, project_id: str, operation_id: str) -> dict:
     ops = payload.get("operations")
     if not isinstance(ops, list):
         return {"status": "OPERATION_CONTRACT_INVALID", "reconciliation_required": True}
+    if bool(ops) != (status == "RECEIPTS_FOUND"):
+        return {"status": "OPERATION_STATUS_ROWS_CONFLICT", "reconciliation_required": True}
     if not ops:
         return {"status": "OPERATION_NOT_FOUND_UNKNOWN", "reconciliation_required": True}
     if len(ops) != 1 or not isinstance(ops[0], dict):
@@ -163,7 +172,9 @@ def _operation_check(payload: dict, project_id: str, operation_id: str) -> dict:
             or phase not in ("PLANNED", "RUNNING_DECLARED", "ARTIFACT_REPORTED",
                              "TECHNICAL_FAILED")
             or (phase in expected_recovery and recovery != expected_recovery[phase])
-            or (recovery == "PENDING_SCIENTIFIC_REVIEW" and phase != "ARTIFACT_REPORTED")):
+            or (phase == "ARTIFACT_REPORTED" and recovery != (
+                "PENDING_SCIENTIFIC_REVIEW" if integrity == "MATCH" else "NEEDS_ARTIFACT_RECONCILIATION"))
+            or (phase in ("PLANNED", "RUNNING_DECLARED") and integrity != "NOT_REPORTED")):
         return {"status": "OPERATION_FIELDS_INVALID", "reconciliation_required": True}
     # No textual receipt, path, note, or unrecognized original fields returned.
     return {
@@ -194,8 +205,10 @@ def _run_check(payload: dict, project_id: str, run_id: str) -> dict:
     split = payload.get("split_declared")
     task = payload.get("task_id_declared")
     declared = payload.get("run_status_declared")
+    protocol = payload.get("protocol_id_declared")
     if (split not in ("dev", "validation") or not isinstance(task, str)
             or not _ID.fullmatch(task)
+            or not isinstance(protocol, str) or not _ID.fullmatch(protocol)
             or declared not in ("VALID", "INVALID", "INCONCLUSIVE", "NOT_RUN")
             or payload.get("original_contract_valid") is not True
             or payload.get("run_sha256_match") is not True):
@@ -211,6 +224,7 @@ def _run_check(payload: dict, project_id: str, run_id: str) -> dict:
         "run_id": run_id,
         "task_id_declared": task,
         "split_declared": split,
+        "protocol_id_declared": protocol,
         "run_status_declared": declared,
         "original_contract_valid": True,
         "run_source_file_consistent": True,
@@ -281,6 +295,10 @@ def inspect_source_chain(
         checks_performed=["resume"],
         check_scope="ONLY_EXPLICITLY_REQUESTED_ORIGINAL_SOURCES",
         active_task_id_declared=resume.get("active_task_id_declared"),
+        latest_valid_run_id_declared=resume.get("latest_valid_run_id_declared"),
+        host_reconciliation_required_declared=resume.get("host_reconciliation_required_declared"),
+        independent_permitted_read_only_review_hint=resume.get("independent_permitted_read_only_review_hint") is True,
+        independent_review_authorization_verified=False,
         latest_rule_commit_local_only=resume.get("rule_commit_local_only"),
         rule_files_sha256_local_only=config["rule_files_sha256_local_only"],
         operational_reconciliation_required=bool(

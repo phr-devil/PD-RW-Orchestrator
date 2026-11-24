@@ -96,3 +96,10 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   independent review authentication, or real Agent readiness inferred.
   Operator must recover original frozen inputs and run actual authorized
   comparisons; no more mock-only framework expansion is needed.
+
+- **v0.10.2 pre-RC:** pin actual PD-RW-Agent RC and PD-RW contract CI on
+  both OSes; preserve source protocol/Run and independent review hints,
+  reject contradictory receipts, bound file reads and improve human
+  handoff. Remain pre-RC until final integration results and operator
+  acceptance establish the actual release scope. No original authority
+  or model execution granted.

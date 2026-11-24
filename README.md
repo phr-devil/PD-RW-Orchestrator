@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.10.1 / M4-B historical decision replay and matched provider assessment. Real historical inputs, actual provider runs, original grants and general research dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.10.2 / pre-RC integration hardening. Actual upstream contract CI added; operator-host acceptance, original grants, real model runs and general research dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ### M1-C host acceptance (no model calls)
 
