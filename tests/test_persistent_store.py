@@ -121,11 +121,16 @@ def test_storage_does_not_become_science_ledger(tmp_path):
 
 
 def test_example_plan_contract_matches_schema():
-    from jsonschema import RefResolver
+    from referencing import Registry, Resource
     source = json.loads((ROOT / "examples/operational-plan.example.json").read_text())
     schema = json.loads((ROOT / "schemas/plan.schema.json").read_text())
-    resolver = RefResolver(base_uri=(ROOT / "schemas").as_uri() + "/", referrer=schema)
-    Draft202012Validator(schema, resolver=resolver).validate(source)
+    schema["$id"] = (ROOT / "schemas/plan.schema.json").as_uri()
+    task_schema = json.loads((ROOT / "schemas/task.schema.json").read_text())
+    registry = Registry().with_resource(
+        (ROOT / "schemas/task.schema.json").as_uri(),
+        Resource.from_contents(task_schema),
+    )
+    Draft202012Validator(schema, registry=registry).validate(source)
 
 
 def test_unique_idempotency_keys_required_before_staging(tmp_path):
