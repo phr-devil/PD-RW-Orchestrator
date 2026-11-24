@@ -18,6 +18,7 @@ from typing import Any
 
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
+from pdrw_orchestrator.contracts import render_pilot_contract
 
 _MAX_OUTPUT_BYTES = 64 * 1024
 # Pinned contents of the public synthetic pilot, NOT arbitrary repo files.
@@ -143,6 +144,7 @@ def run_readonly_pilot(
     executable: str,
     output_path: Path,
     wall_seconds: int,
+    task_contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """One real CLI process; caller must persist dispatch intent BEFORE calling."""
     if type(wall_seconds) is not int or not 10 <= wall_seconds <= 300:
@@ -158,6 +160,8 @@ def run_readonly_pilot(
     # A second integrity check immediately before attempting the subprocess.
     # This does not replace VM-level isolation or prevent every TOCTOU race.
     verify_fixture()
+    rendered_prompt = (render_pilot_contract(task_contract)
+                       if task_contract is not None else pilot_prompt())
     args = [
         str(path), "exec",
         "--ephemeral", "--ignore-user-config", "--ignore-rules",
@@ -169,7 +173,7 @@ def run_readonly_pilot(
     ]
     try:
         proc = subprocess.run(
-            args, input=pilot_prompt(), text=True, check=False,
+            args, input=rendered_prompt, text=True, check=False,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             timeout=wall_seconds,
         )
