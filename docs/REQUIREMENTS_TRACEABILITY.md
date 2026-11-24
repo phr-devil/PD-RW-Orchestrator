@@ -32,3 +32,9 @@ M1-C update (v0.7.0): read-only operator installation and process checks are
 available. The upstream RC operation receipt has no trustworthy PID/start
 identity and its authorization state is UNVERIFIED. Do not infer original
 H6 grant, restart rights, or scientific validity from these observations.
+
+M2-A update (v0.8.0): fixed synthetic independent-review relay now provides a
+concrete second CLI adapter and task/attempt/parent-result binding. Prior
+Agent free text is not transmitted to the second provider. Original-author
+grant verification is still unavailable, so routine real DEV has no new
+automated dispatch path and no artificial approval requirement is introduced.

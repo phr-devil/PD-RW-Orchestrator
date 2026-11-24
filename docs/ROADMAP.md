@@ -57,3 +57,12 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   Next prerequisite: actual M1-C workstation acceptance and a trusted
   upstream grant/operation binding adapter; then real isolated read-only
   two-Agent handoff instead of adding further mock-only infrastructure.
+
+- **v0.8.0 M2-A scoped two-provider relay:** Claude Code non-interactive
+  adapter, explicit per-review opt-in and exact prompt digest, upstream
+  intent/receipt/child-exit/output checks, fixed public code and pinned schema,
+  source-line hints only (no prior Agent free text), one stable second attempt,
+  provider provenance, final ChatGPT handoff. CI uses two actual local synthetic
+  processes in place of provider calls. General dispatch, trusted original
+  authorization, process-tree isolation, true model/host acceptance and measured
+  scientific efficacy remain unverified.

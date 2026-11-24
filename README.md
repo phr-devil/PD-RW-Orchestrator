@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.7.1 / M1-C synthetic Pilot direct-child lifecycle and exact intent reconciliation. Original PD-RW grants, real-project process binding and multi-Agent dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.8.0 / M2-A bounded synthetic Codex-to-Claude Code independent-review relay. Real provider/host acceptance, original PD-RW grants and general research dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ### M1-C host acceptance (no model calls)
 
@@ -14,6 +14,21 @@ pdrw-orch host process --pid 12345
 See [M1-C host acceptance](docs/M1C_HOST_ACCEPTANCE.md). These checks are
 read-only observations, not dispatch, original H6 permission, process
 ownership, or restart authorization.
+
+### M2-A: bounded two-provider synthetic relay
+
+After a separately authorized successful `codex pilot` attempt in an isolated
+environment, preview the second review (no model calls):
+
+~~~powershell
+pdrw-orch relay probe
+pdrw-orch relay preview --plan-id pilot-001 --attempt-id attempt-001
+~~~
+
+Inspect the exact preview prompt, including selected Policy text, before
+authorizing a second model. See [M2-A relay acceptance](docs/M2A_RELAY.md).
+The general router is still non-dispatchable for real research; this is a
+specialized fixed-scope pilot and not an authenticated H6 grant.
 
 ## Mission
 
