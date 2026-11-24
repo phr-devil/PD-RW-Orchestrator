@@ -155,12 +155,13 @@ def _operation_check(payload: dict, project_id: str, operation_id: str) -> dict:
     expected_recovery = {
         "PLANNED": "VERIFY_ACTUAL_EXECUTION",
         "RUNNING_DECLARED": "VERIFY_ACTUAL_EXECUTION",
+        "TECHNICAL_FAILED": "REVIEW_TECHNICAL_FAILURE",
     }
     if (not isinstance(task, str) or not _ID.fullmatch(task)
             or not isinstance(recovery, str) or recovery not in _OP_RECOVERY
             or not isinstance(integrity, str) or integrity not in {"MATCH", "CHANGED", "MISSING_OR_UNAVAILABLE", "NOT_REPORTED"}
             or phase not in ("PLANNED", "RUNNING_DECLARED", "ARTIFACT_REPORTED",
-                             "FAILED", "CANCELLED", "FAILED_DECLARED", "CANCELLED_DECLARED")
+                             "TECHNICAL_FAILED")
             or (phase in expected_recovery and recovery != expected_recovery[phase])
             or (recovery == "PENDING_SCIENTIFIC_REVIEW" and phase != "ARTIFACT_REPORTED")):
         return {"status": "OPERATION_FIELDS_INVALID", "reconciliation_required": True}

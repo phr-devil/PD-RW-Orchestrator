@@ -343,3 +343,31 @@ def test_workflow_rules_changed_mid_resume_fails_closed(tmp_path, monkeypatch):
     checked = source_checks.inspect_source_chain("P19", run_id="RUN1", environment=env)
     assert checked["verification_status"] == "SOURCE_INPUT_CHANGED_DURING_CHECK"
     assert checked["execution_authorized"] is False
+
+
+def test_original_technical_failure_receipt_preserves_engineering_status(tmp_path, monkeypatch):
+    env = configured(tmp_path)
+    mock_source(monkeypatch, {"operations": operation(
+        phase="TECHNICAL_FAILED", recovery_class="REVIEW_TECHNICAL_FAILURE",
+        artifact_integrity="NOT_REPORTED")})
+    checked = source_checks.inspect_source_chain("P19", operation_id="OP1", environment=env)
+    assert checked["operation"]["phase_declared"] == "TECHNICAL_FAILED"
+    assert checked["operation"]["recovery_class"] == "REVIEW_TECHNICAL_FAILURE"
+    assert checked["verification_status"] == "SOURCE_RECONCILIATION_REQUIRED"
+
+
+def test_missing_run_task_id_does_not_claim_cross_reference_match(tmp_path, monkeypatch):
+    env = configured(tmp_path)
+    mock_source(monkeypatch, {"operations": operation(), "verify-run": {
+        "status": "RUN_NOT_REGISTERED", "project_id": "P19", "run_id": "RUN1"}})
+    result = source_checks.inspect_source_chain(
+        "P19", operation_id="OP1", run_id="RUN1", environment=env)
+    assert result["cross_reference_status"] == "ORIGINAL_TASK_ID_UNKNOWN"
+    assert result["verification_status"] == "SOURCE_RECONCILIATION_REQUIRED"
+
+
+def test_source_chain_preserves_pending_scientific_review_count(tmp_path, monkeypatch):
+    env = configured(tmp_path)
+    mock_source(monkeypatch, resume=source_resume(pending_scientific_review_count=2))
+    result = source_checks.inspect_source_chain("P19", environment=env)
+    assert result["pending_scientific_review_count"] == 2
