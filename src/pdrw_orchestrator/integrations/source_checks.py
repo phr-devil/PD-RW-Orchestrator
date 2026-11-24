@@ -82,8 +82,8 @@ def _source_settings(project_id: str, env: dict) -> tuple[dict, str | None]:
         return {
             "registry_sha256_local_only": hashlib.sha256(raw).hexdigest(),
             "rule_files_sha256_local_only": hashlib.sha256(
-                b"AGENTS.md\\x00" + workflow_bytes[0] +
-                b"\\x00WORKFLOW.md\\x00" + workflow_bytes[1]
+                b"AGENTS.md\x00" + workflow_bytes[0] +
+                b"\x00WORKFLOW.md\x00" + workflow_bytes[1]
             ).hexdigest(),
         }, None
     except (OSError, UnicodeError, ValueError, TypeError):

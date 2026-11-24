@@ -262,7 +262,7 @@ def test_local_receipt_rejects_inconsistent_return_codes(tmp_path, contradiction
     assert checked["status"] == "HOST_RECEIPT_RECONCILIATION_REQUIRED"
 
 
-def test_local_receipt_accepts_timeout_as_non-success_without_output(tmp_path):
+def test_local_receipt_accepts_timeout_as_non_success_without_output(tmp_path):
     c = contract()
     write_pilot_contract(tmp_path, c)
     write_pilot_receipt(
