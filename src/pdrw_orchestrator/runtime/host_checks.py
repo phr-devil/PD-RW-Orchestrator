@@ -139,7 +139,8 @@ def inspect_process(pid: int, *, expected_created_at: float | None = None,
         return {**base, "status": "PROCESS_INPUT_INVALID"}
     if has_baseline and (
         type(expected_created_at) not in (int, float)
-        or not math.isfinite(expected_created_at) or expected_created_at <= 0
+        or not 0 < expected_created_at < 1e12
+        or not math.isfinite(expected_created_at)
         or not isinstance(expected_exe_path_sha256, str)
         or not _SHA.fullmatch(expected_exe_path_sha256)
     ):
@@ -199,6 +200,11 @@ def audit_host(project_id: str, *, operation_id: str | None = None,
             return {**result, "project_id": None, "status": "HOST_IDENTIFIER_INVALID"}
     if not project_id:
         return {**result, "status": "HOST_IDENTIFIER_INVALID"}
+    try:
+        python_executable = _python_path(python_executable)
+    except (OSError, TypeError, ValueError):
+        return {**result, "status": "HOST_INSTALLATION_RECONCILIATION_REQUIRED"}
+    environment = dict(os.environ if environment is None else environment)
     options = dict(python_executable=python_executable, expected_version=expected_version,
                    expected_cli_sha256=expected_cli_sha256, environment=environment)
     initial = probe_installation(**options)

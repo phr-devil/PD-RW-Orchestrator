@@ -80,7 +80,10 @@ def inspect_resume(
     if not isinstance(executable, str) or not executable or not Path(executable).is_file():
         return _blocked("PYTHON_EXECUTABLE_UNAVAILABLE", project_id)
 
-    argv = [executable, "-m", "pdrw_agent.cli", "resume", "--project-id", project_id]
+    # Preserve the venv launcher path (do not resolve its symlink), but
+    # reject current-directory/PYTHONPATH package shadowing.
+    executable = str(Path(executable).absolute())
+    argv = [executable, "-I", "-B", "-m", "pdrw_agent.cli", "resume", "--project-id", project_id]
     try:
         # Redirect stdout to a private OS file, then read only MAX+1 bytes.
         # capture_output=True would allocate arbitrary upstream output in RAM.
@@ -116,9 +119,9 @@ def inspect_resume(
         )
     if payload.get("project_id") != project_id:
         return _blocked("UPSTREAM_PROJECT_ID_MISMATCH", project_id)
-    scientific = payload.get("scientific_context") or {}
-    operations = payload.get("operation_context") or {}
-    next_hint = payload.get("next_action_hint") or {}
+    scientific = payload.get("scientific_context", {})
+    operations = payload.get("operation_context", {})
+    next_hint = payload.get("next_action_hint", {})
     if not all(isinstance(v, dict) for v in (scientific, operations, next_hint)):
         return _blocked("UPSTREAM_INVALID_CONTEXT", project_id)
     declared = scientific.get("active_task_id_declared")
@@ -144,7 +147,7 @@ def inspect_resume(
     ):
         rule_commit = None
     hint = next_hint.get("action")
-    if hint not in {
+    if not isinstance(hint, str) or hint not in {
         "RECONCILE_AFFECTED_ORIGINAL_SOURCES",
         "RECONCILE_UNCERTAIN_PRIOR_OPERATION",
         "REVIEW_ORIGINAL_SCOPE_THEN_CONTINUE_PERMITTED_DEV",

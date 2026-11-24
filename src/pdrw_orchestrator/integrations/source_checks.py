@@ -103,10 +103,10 @@ def _read_cli(
     if command not in ("operations", "verify-run"):
         return None, "SOURCE_COMMAND_NOT_ALLOWED"
     if command == "operations":
-        argv = [python_executable, "-m", "pdrw_agent.cli", "operations",
+        argv = [str(Path(python_executable).absolute()), "-I", "-B", "-m", "pdrw_agent.cli", "operations",
                 "--project-id", project_id, "--operation-id", identifier, "--limit", "1"]
     else:
-        argv = [python_executable, "-m", "pdrw_agent.cli", "verify-run",
+        argv = [str(Path(python_executable).absolute()), "-I", "-B", "-m", "pdrw_agent.cli", "verify-run",
                 "--project-id", project_id, "--run-id", identifier]
     try:
         with tempfile.TemporaryFile(mode="w+b") as sink:
@@ -156,9 +156,11 @@ def _operation_check(payload: dict, project_id: str, operation_id: str) -> dict:
         "PLANNED": "VERIFY_ACTUAL_EXECUTION",
         "RUNNING_DECLARED": "VERIFY_ACTUAL_EXECUTION",
     }
-    if (not isinstance(task, str) or not task or recovery not in _OP_RECOVERY
-            or integrity not in {"MATCH", "CHANGED", "MISSING_OR_UNAVAILABLE", "NOT_REPORTED"}
-            or not isinstance(phase, str)
+    if (not isinstance(task, str) or not _ID.fullmatch(task)
+            or not isinstance(recovery, str) or recovery not in _OP_RECOVERY
+            or not isinstance(integrity, str) or integrity not in {"MATCH", "CHANGED", "MISSING_OR_UNAVAILABLE", "NOT_REPORTED"}
+            or phase not in ("PLANNED", "RUNNING_DECLARED", "ARTIFACT_REPORTED",
+                             "FAILED", "CANCELLED", "FAILED_DECLARED", "CANCELLED_DECLARED")
             or (phase in expected_recovery and recovery != expected_recovery[phase])
             or (recovery == "PENDING_SCIENTIFIC_REVIEW" and phase != "ARTIFACT_REPORTED")):
         return {"status": "OPERATION_FIELDS_INVALID", "reconciliation_required": True}
@@ -192,6 +194,7 @@ def _run_check(payload: dict, project_id: str, run_id: str) -> dict:
     task = payload.get("task_id_declared")
     declared = payload.get("run_status_declared")
     if (split not in ("dev", "validation") or not isinstance(task, str)
+            or not _ID.fullmatch(task)
             or declared not in ("VALID", "INVALID", "INCONCLUSIVE", "NOT_RUN")
             or payload.get("original_contract_valid") is not True
             or payload.get("run_sha256_match") is not True):
@@ -282,6 +285,7 @@ def inspect_source_chain(
         operational_reconciliation_required=bool(
             resume.get("operational_reconciliation_required")),
         unresolved_operation_count=resume.get("unresolved_operation_count"),
+        pending_scientific_review_count=resume.get("pending_scientific_review_count", 0),
         operation=None, run=None,
     )
     for command, identifier in (("operations", operation_id), ("verify-run", run_id)):
@@ -307,8 +311,10 @@ def inspect_source_chain(
     if response["operation"] is not None and response["run"] is not None:
         op = response["operation"]
         run = response["run"]
-        if (op.get("task_id_declared") and run.get("task_id_declared")
-                and op["task_id_declared"] != run["task_id_declared"]):
+        if not op.get("task_id_declared") or not run.get("task_id_declared"):
+            response["verification_status"] = "SOURCE_RECONCILIATION_REQUIRED"
+            response["cross_reference_status"] = "ORIGINAL_TASK_ID_UNKNOWN"
+        elif op["task_id_declared"] != run["task_id_declared"]:
             response["verification_status"] = "SOURCE_RECONCILIATION_REQUIRED"
             response["cross_reference_status"] = "ORIGINAL_TASK_ID_MISMATCH"
         else:

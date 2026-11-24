@@ -268,8 +268,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 context = {
                     "bridge_status": "SOURCE_REVIEW_ONLY" if source_ok else "SOURCE_CHECK_UNAVAILABLE",
-                    "project_id": task.project_id,
+                    "project_id": original_check.get("project_id"),
                     "source_status": original_check.get("resume_status"),
+                    "pending_scientific_review_count": original_check.get("pending_scientific_review_count", 0),
                     "unresolved_operation_count": original_check.get("unresolved_operation_count"),
                     "operational_reconciliation_required": original_check.get(
                         "operational_reconciliation_required"),

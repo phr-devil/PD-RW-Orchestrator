@@ -184,7 +184,7 @@ def test_command_uses_source_cli_readonly_subcommands_only(tmp_path,monkeypatch)
     captured=[]
     def subproc(args,**kwargs):
         captured.append(args)
-        assert args[:4]==[sys.executable,"-m","pdrw_agent.cli","operations"]
+        assert args[:6]==[str(Path(sys.executable).absolute()),"-I","-B","-m","pdrw_agent.cli","operations"]
         assert "--operation-id" in args
         assert kwargs["check"] is False
         assert kwargs["timeout"]<=90
