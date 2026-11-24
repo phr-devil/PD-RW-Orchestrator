@@ -14,6 +14,8 @@ from .host_evidence import inspect_pilot_receipt
 from .runtime.codex_pilot import pilot_task
 from .runtime.codex_pilot import run_codex_pilot
 from .runtime.host_checks import audit_host, inspect_process
+from .runtime.relay import preview_relay, execute_relay, inspect_relay
+from .adapters.claude import probe_claude
 from .runtime.lifecycle import inspect_lifecycle, lifecycle_matches_invocation
 from .controller import run_demo
 from .decision import decide_next
@@ -98,6 +100,14 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Explicitly allow one real model subprocess for the synthetic fixture")
     codex.add_argument("--ack-external-model", action="store_true",
                        help="Acknowledge external model transmission and possible provider charges")
+    relay = commands.add_parser("relay", help="Explicitly opted-in synthetic independent review")
+    relay.add_argument("action", choices=["probe", "preview", "run", "inspect"])
+    relay.add_argument("--plan-id")
+    relay.add_argument("--attempt-id")
+    relay.add_argument("--claude-bin")
+    relay.add_argument("--approved-prompt-sha256")
+    relay.add_argument("--execute", action="store_true")
+    relay.add_argument("--ack-external-model", action="store_true")
     host = commands.add_parser("host", help="Read-only local installation and process observations")
     host_actions = host.add_subparsers(dest="action", required=True)
     audit = host_actions.add_parser("audit", help="Inspect installed RC and original sources")
@@ -251,6 +261,24 @@ def main(argv: list[str] | None = None) -> int:
                     codex_bin=args.codex_bin,
                     policy_path=args.policy, registry_path=args.agents,
                 )
+        elif args.command == "relay":
+            if args.action != "run" and (args.execute or args.ack_external_model or args.approved_prompt_sha256):
+                raise ValueError("RELAY_READONLY_ACTION_REJECTS_EXECUTION_FLAGS")
+            if args.action == "probe":
+                result = probe_claude(args.claude_bin)
+            else:
+                if not args.plan_id or not args.attempt_id:
+                    raise ValueError("RELAY_PARENT_IDS_REQUIRED")
+                if args.action == "preview":
+                    result = preview_relay(args.plan_id, args.attempt_id,
+                                           policy_path=args.policy, registry_path=args.agents)
+                elif args.action == "inspect":
+                    result = inspect_relay(args.plan_id, args.attempt_id)
+                else:
+                    result = execute_relay(args.plan_id, args.attempt_id,
+                        policy_path=args.policy, registry_path=args.agents,
+                        claude_bin=args.claude_bin, approved_prompt_sha256=args.approved_prompt_sha256,
+                        execute=args.execute, ack_external_model=args.ack_external_model)
         elif args.command == "host":
             if args.action == "audit":
                 result = audit_host(
@@ -322,6 +350,11 @@ def main(argv: list[str] | None = None) -> int:
                 "LOCAL_BYTES_MATCH_NOT_SCIENCE", "LOCAL_RECEIPT_MATCH_NO_OUTPUT",
                 "STRUCTURED_OUTPUT_RECEIVED",
             ) else 3
+        if args.command == "relay":
+            return 0 if result["status"] in (
+                "CLAUDE_PILOT_CAPABILITY_ONLY", "RELAY_PREVIEW_ONLY",
+                "STRUCTURED_OUTPUT_RECEIVED", "LOCAL_BYTES_MATCH_NOT_SCIENCE",
+                "LOCAL_RECEIPT_MATCH_NO_OUTPUT") else 3
         if args.command == "host":
             return 0 if result["status"] in (
                 "HOST_READ_ONLY_CHECKS_COMPLETE", "PROCESS_OBSERVED_UNBOUND",
