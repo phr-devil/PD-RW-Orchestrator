@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import subprocess
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -80,14 +81,18 @@ def _stop_owned_child(proc):
 
 def run_tracked_child(args, prompt, wall_seconds, lifecycle):
     """Internal runner for fixed synthetic adapter. No process-tree claim."""
-    lifecycle.record("launch-intent", {"wall_seconds": wall_seconds})
-    try:
-        proc = subprocess.Popen(args, stdin=subprocess.PIPE,
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                text=True, encoding="utf-8")
-    except OSError:
-        lifecycle.record("child-ended", {"outcome": "LAUNCH_FAILED", "returncode": None})
-        return None, "PROCESS_LAUNCH_FAILED_UNCERTAIN"
+    # Prewrite bounded stdin to a temporary OS file. Windows pipe writes can
+    # block before communicate() enforces a timeout if the child never reads.
+    with tempfile.TemporaryFile(mode="w+b") as stdin:
+        stdin.write(prompt.encode("utf-8"))
+        stdin.seek(0)
+        lifecycle.record("launch-intent", {"wall_seconds": wall_seconds})
+        try:
+            proc = subprocess.Popen(args, stdin=stdin,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            lifecycle.record("child-ended", {"outcome": "LAUNCH_FAILED", "returncode": None})
+            return None, "PROCESS_LAUNCH_FAILED_UNCERTAIN"
     try:
         observation = inspect_process(proc.pid)
         lifecycle.record("child-started", {
@@ -95,7 +100,7 @@ def run_tracked_child(args, prompt, wall_seconds, lifecycle):
             "identity_status": observation["status"],
         })
         try:
-            proc.communicate(prompt, timeout=wall_seconds)
+            proc.wait(timeout=wall_seconds)
         except subprocess.TimeoutExpired:
             code = _stop_owned_child(proc)
             lifecycle.record("child-ended", {"outcome": "TIMEOUT",

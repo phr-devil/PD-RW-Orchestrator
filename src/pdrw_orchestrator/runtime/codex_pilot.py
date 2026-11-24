@@ -29,7 +29,7 @@ from pdrw_orchestrator.next_task import policy_task_for_proposal
 from pdrw_orchestrator.policy import compile_guidance, load_policy
 from pdrw_orchestrator.registry import load_agents
 from pdrw_orchestrator.runtime.store import (
-    _store_path, mark_intent_uncertain, stage_plan,
+    _store_path, mark_intent_uncertain, stage_plan, pilot_attempt_dir,
 )
 from pdrw_orchestrator.next_task import _OBJECTIVES
 from .lifecycle import PilotLifecycle, inspect_lifecycle, lifecycle_matches_invocation
@@ -145,7 +145,7 @@ def run_codex_pilot(
 
     db_path = _store_path(create=False)
     assert db_path is not None
-    run_dir = db_path.parent / "codex-pilot" / plan_id / attempt_id
+    run_dir = pilot_attempt_dir(db_path.parent, plan_id, attempt_id)
     if run_dir.exists() or run_dir.is_symlink():
         raise ValueError("PILOT_ATTEMPT_ARTIFACT_COLLISION_NO_RETRY")
     run_dir.mkdir(parents=True)

@@ -156,7 +156,9 @@ def run_readonly_pilot(
         raise ValueError("CODEX_EXECUTABLE_UNAVAILABLE")
     fixture = verify_fixture()
     schema_file = output_schema_path()
-    output_path = output_path.resolve()
+    if output_path.is_symlink():
+        raise ValueError("PILOT_OUTPUT_PATH_UNAVAILABLE")
+    output_path = output_path.absolute()
     if not output_path.parent.is_dir() or output_path.exists() or output_path.is_symlink():
         raise ValueError("PILOT_OUTPUT_PATH_UNAVAILABLE")
     # A second integrity check immediately before attempting the subprocess.
@@ -201,7 +203,11 @@ def run_readonly_pilot(
         return {"status": "OUTPUT_EXCEEDS_LIMIT", "returncode": 0,
                 "report": None}
     try:
-        report = json.loads(output_path.read_text(encoding="utf-8"))
+        with output_path.open("rb") as stream:
+            raw = stream.read(_MAX_OUTPUT_BYTES + 1)
+        if len(raw) > _MAX_OUTPUT_BYTES:
+            return {"status": "OUTPUT_EXCEEDS_LIMIT", "returncode": 0, "report": None}
+        report = json.loads(raw.decode("utf-8"))
         schema = json.loads(schema_file.read_text(encoding="utf-8"))
         validate(instance=report, schema=schema)
     except (ValueError, UnicodeError, OSError, ValidationError, TypeError):

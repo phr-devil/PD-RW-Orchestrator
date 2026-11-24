@@ -92,3 +92,35 @@ def test_intent_lookup_requires_exact_attempt(tmp_path, monkeypatch):
     mark_intent_uncertain("PILOT","plan1","CODEX-READ-001","try1")
     assert has_exact_intent("PILOT","plan1","CODEX-READ-001","try1")
     assert not has_exact_intent("PILOT","plan1","CODEX-READ-001","try2")
+
+
+
+def test_runtime_attempt_directory_rejects_redirected_parent(tmp_path):
+    from pdrw_orchestrator.runtime.store import pilot_attempt_dir
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    other = tmp_path / "other"
+    other.mkdir()
+    try:
+        (runtime / "codex-pilot").symlink_to(other, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlink creation unavailable on this host")
+    with pytest.raises(ValueError, match="PILOT_ATTEMPT_PATH_REDIRECTED"):
+        pilot_attempt_dir(runtime, "plan1", "try1")
+    assert list(other.iterdir()) == []
+
+
+def test_runtime_db_redirect_rejected(tmp_path, monkeypatch):
+    from pdrw_orchestrator.runtime.store import _store_path
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    outside = tmp_path / "outside.sqlite"
+    outside.write_bytes(b"untouched")
+    try:
+        (runtime / "orchestrator.sqlite").symlink_to(outside)
+    except OSError:
+        pytest.skip("symlink creation unavailable on this host")
+    monkeypatch.setenv("PDRW_ORCH_RUNTIME_DIR", str(runtime))
+    with pytest.raises(ValueError, match="RUNTIME_DATABASE_REDIRECTED"):
+        _store_path(create=False)
+    assert outside.read_bytes() == b"untouched"

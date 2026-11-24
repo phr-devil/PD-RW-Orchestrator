@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sqlite3
+import stat
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -89,7 +90,36 @@ def _store_path(*, environment: Mapping[str, str] | None = None,
         directory.mkdir(parents=True, exist_ok=True)
     elif not directory.is_dir():
         return None
-    return directory / _DB_NAME
+    db_path = directory / _DB_NAME
+    if _is_redirected(db_path):
+        raise ValueError("RUNTIME_DATABASE_REDIRECTED")
+    return db_path
+
+
+def _is_redirected(path: Path) -> bool:
+    # Reject symbolic links and Windows reparse points at the controlled leaf.
+    # Not a complete OS sandbox; the runtime root must be operator-owned.
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    return path.is_symlink() or bool(
+        getattr(info, "st_file_attributes", 0) &
+        getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    )
+
+
+def pilot_attempt_dir(runtime_root: Path, plan_id: str, attempt_id: str) -> Path:
+    _identifier(plan_id, "plan_id")
+    _identifier(attempt_id, "attempt_id")
+    candidate = runtime_root
+    for part in ("codex-pilot", plan_id, attempt_id):
+        candidate = candidate / part
+        if _is_redirected(candidate):
+            raise ValueError("PILOT_ATTEMPT_PATH_REDIRECTED")
+        if candidate.exists() and not candidate.is_dir():
+            raise ValueError("PILOT_ATTEMPT_PATH_NOT_DIRECTORY")
+    return candidate
 
 
 @contextmanager

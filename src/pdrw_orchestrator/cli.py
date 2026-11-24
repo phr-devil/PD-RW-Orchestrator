@@ -27,7 +27,7 @@ from .next_task import policy_task_for_proposal
 from .registry import load_agents
 from .runtime.store import (
     assess_recovery, inspect_plan, mark_intent_uncertain, stage_plan,
-    _identifier, _store_path, has_exact_intent,
+    _identifier, _store_path, has_exact_intent, pilot_attempt_dir,
 )
 
 
@@ -221,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
                 elif not has_exact_intent("PILOT", args.plan_id, "CODEX-READ-001", args.attempt_id):
                     result = {"status": "PILOT_INTENT_NOT_FOUND", "restart_permitted": False}
                 else:
-                    run_dir = private_store.parent / "codex-pilot" / args.plan_id / args.attempt_id
+                    run_dir = pilot_attempt_dir(private_store.parent, args.plan_id, args.attempt_id)
                     result = inspect_pilot_receipt(
                         run_dir, project_id="PILOT", task_id="CODEX-READ-001",
                         attempt_id=args.attempt_id,
