@@ -26,3 +26,11 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   RC/Skill/MCP environment, original author H6/H8 scope, original evidence
   and real OS process liveness. No upgrade to real-project write-enabled tasks
   or autonomous general routing without this separate verified host gate.
+
+- **v0.6.1 — R2-B correctness hardening:** bound raw PD-RW resume stdout memory
+  (private temporary spool; never return raw source), filter upstream strings
+  and count fields, fingerprint project-map and rule bytes around each scoped
+  read-only source call, and reject contradictory local pilot receipts.
+  Upgrade JSON Schema test validation to offline referencing.Registry.
+  CI uses synthetic/mocked upstream data. Real host author permission,
+  process liveness and original science remain outside this verifier.

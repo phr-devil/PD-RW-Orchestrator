@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.6.0 / R2-B original-source read-only cross-check (code + simulated CI). Actual Windows/M1-C host acceptance, authentic author grants and general Agent dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.6.1 / R2-B hardening: bounded upstream resume, source-snapshot drift checks and fail-closed local execution receipts; operator-host M1-C acceptance remains pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ## Mission
 

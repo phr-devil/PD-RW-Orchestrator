@@ -83,3 +83,23 @@ never upgrades \`effective_claim_status\` to VALID and never authorizes
   scientific classifications.
 - Next: real operator-host process/permissions adapter with explicit original
   scope authorizer; then bounded real-Agent handoff and independent review.
+
+## v0.6.1 safeguards
+
+- The read-only `resume` bridge now redirects upstream output to a temporary
+  file and reads no more than 256 KiB; it never embeds raw snapshot material.
+  It filters imported Task IDs, action hints, error codes and counts before
+  they can reach ChatGPT. This bounds memory **after process exit**, but does
+  not impose a hard disk-write limit on a malicious upstream binary; use a
+  trusted installed PD-RW-Agent and an OS-isolated operator account.
+- `source-check` fingerprints the private project map and PD-RW `AGENTS.md` /
+  `WORKFLOW.md` before and after each invocation. If any sampled input changes,
+  it returns `SOURCE_INPUT_CHANGED_DURING_CHECK`, with no combined operation
+  or Run assertion. This is *change detection*, not an atomic snapshot or
+  verification of all project files.
+- Local Codex receipt inspection refuses fabricated "successful" outcomes
+  without a recorded output, mutually impossible exit-code/status pairs, or
+  an out-of-scope synthetic contract even when local hashes agree.
+- All result paths remain informational. Neither a matching hash nor an
+  unblocked status authorizes execution, proves scientific validity, or
+  resolves an unknown original process.

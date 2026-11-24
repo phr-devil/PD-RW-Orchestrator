@@ -1,4 +1,4 @@
-# User guide — v0.6.0 (R2-B read-only source checks; execution pilot separate)
+# User guide — v0.6.1 (R2-B read-only source checks; execution pilot separate)
 
 ~~~bash
 python -m pip install -e ".[dev]"
