@@ -1,2 +1,2 @@
 """Operational multi-agent orchestration, not a scientific authority."""
-__version__ = "0.4.1"
+__version__ = "0.5.0"

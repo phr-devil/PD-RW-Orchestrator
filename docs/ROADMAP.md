@@ -14,3 +14,6 @@
 Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning or use Agent self-assessments as permission/scientific truth.
 
 - **R1 correctness (current):** fixed synthetic fixture hash/allowlist, preflight before subprocess, separate prior subprocess observation from next-task dispatch, prevention of repeated review loops, and failure-first decision handling. CI remains mock-provider only.
+
+- **R2-A (v0.5.0, synthetic CI):** compiled scoped pilot Task+Policy actually sent to Codex CLI; bounded local task-contract and observed execution receipt with read-only hash checks; pilot-only provider capability acceptance; CLI preview/inspect without model calls. General routing and host authorization remain fail-closed.
+- **R2-B/M1-C (pending):** trusted PD-RW original evidence/grants from operator-controlled host, process liveness, real Agent credentials/usage and independent science review. Only then validate a general-purpose Agent execution path.

@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.4.1 / R1 correctness hardening: synthetic-only Codex adapter, preflight and conservative execution receipts; real Windows operator acceptance pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.5.0 / R2-A scoped task contract, Codex capability handshake and local receipt checks. Real Windows operator and original PD-RW evidence acceptance remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ## Mission
 
@@ -52,6 +52,23 @@ pdrw-orch advise --task-file examples/decision-task.example.json --result-file e
 ~~~
 
 Returns a normalized untrusted result, conservative next-action recommendation, concise Agent task draft and six-section ChatGPT handoff report. Add `--save` only with a configured private `PDRW_ORCH_RUNTIME_DIR` to store `handoff.json` / `handoff.md` locally. **This does not run external Agents, verify science, or grant execution permission.** See [decision contract](docs/DECISION_AND_HANDOFF.md).
+
+### R2-A: inspect the next Agent contract without running a model
+
+~~~powershell
+pdrw-orch codex contract
+pdrw-orch codex probe
+# Inspect a previously attempted private synthetic pilot:
+$env:PDRW_ORCH_RUNTIME_DIR = "D:\\private-orchestrator-runtime"
+pdrw-orch codex inspect --plan-id m2pilot-001 --attempt-id attempt-001
+~~~
+
+R2-A now compiles the scoped Pilot task and applicable policy into the actual
+Codex stdin prompt, verifies only a **synthetic pilot** CLI capability, and
+checks private host execution artifacts against recorded hashes. Neither
+successful local hashes nor a CLI help probe proves science, host isolation,
+paid usage, author grant, or general Agent readiness. See
+[R2 contract and receipt specification](docs/R2_CONTRACT_EVIDENCE.md).
 
 ### Codex CLI synthetic read-only pilot (operator opt-in only)
 

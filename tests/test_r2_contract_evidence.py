@@ -150,3 +150,61 @@ def test_codex_runner_receives_compiled_contract_as_stdin(tmp_path,monkeypatch):
     assert "ALG-EVIDENCE" in seen["prompt"]
     assert "PILOT_READONLY_SYNTHETIC_ONLY" in seen["prompt"]
     assert "No scientific verification" in seen["prompt"]
+
+
+def test_codex_contract_preview_is_no_model_call(monkeypatch, capsys):
+    from pdrw_orchestrator.cli import main
+    from pdrw_orchestrator import cli
+    monkeypatch.setattr(cli, "probe_codex", lambda _: (_ for _ in ()).throw(
+        AssertionError("contract preview must not probe or invoke codex")))
+    assert main(["codex", "contract"]) == 0
+    result=json.loads(capsys.readouterr().out)
+    assert result["status"] == "PILOT_CONTRACT_PREVIEW_ONLY"
+    assert result["contract_sha256"] == contract_sha256(contract())
+    assert result["model_invoked"] is False
+    assert result["execution_authorized"] is False
+
+
+def test_codex_inspect_is_readonly_and_detects_modified_output(tmp_path, monkeypatch, capsys):
+    from pdrw_orchestrator.cli import main
+    monkeypatch.setenv("PDRW_ORCH_RUNTIME_DIR", str(tmp_path/"private-runtime"))
+    from pdrw_orchestrator.runtime.store import stage_plan,mark_intent_uncertain
+    from pdrw_orchestrator.runtime.codex_pilot import pilot_task
+    stage_plan("r2-test", (pilot_task(),))
+    mark_intent_uncertain("PILOT","r2-test","CODEX-READ-001","try-one")
+    directory=tmp_path/"private-runtime"/"codex-pilot"/"r2-test"/"try-one"
+    directory.mkdir(parents=True)
+    c=contract()
+    write_pilot_contract(directory,c)
+    output=directory/"codex-final.json"
+    output.write_text("synthetic result",encoding="utf-8")
+    write_pilot_receipt(directory,contract=c,project_id="PILOT",
+                        task_id="CODEX-READ-001",attempt_id="try-one",
+                        invocation={"status":"STRUCTURED_OUTPUT_RECEIVED","returncode":0},
+                        codex_version="fake")
+    args=["codex","inspect","--plan-id","r2-test","--attempt-id","try-one"]
+    assert main(args)==0
+    body=json.loads(capsys.readouterr().out)
+    assert body["status"]=="LOCAL_BYTES_MATCH_NOT_SCIENCE"
+    assert body["original_pd_rw_evidence_verified"] is False
+    output.write_text("tampered",encoding="utf-8")
+    assert main(args)==3
+    assert json.loads(capsys.readouterr().out)["status"]=="HOST_RECEIPT_RECONCILIATION_REQUIRED"
+
+
+def test_codex_inspect_rejects_path_traversal_without_agent_call(tmp_path,monkeypatch,capsys):
+    from pdrw_orchestrator.cli import main
+    from pdrw_orchestrator import cli
+    monkeypatch.setenv("PDRW_ORCH_RUNTIME_DIR",str(tmp_path/"state"))
+    monkeypatch.setattr(cli,"probe_codex",lambda _: (_ for _ in ()).throw(
+        AssertionError("must not probe")))
+    args=["codex","inspect","--plan-id","../escape","--attempt-id","A"]
+    assert main(args)==2
+    assert "invalid plan_id" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("action",["probe","contract","inspect"])
+def test_codex_nonexecution_cli_disallows_execution_flags(capsys,action):
+    from pdrw_orchestrator.cli import main
+    assert main(["codex",action,"--execute","--ack-external-model"])==2
+    assert "CODEX_READONLY_ACTION_REJECTS_EXECUTION_FLAGS" in capsys.readouterr().out
