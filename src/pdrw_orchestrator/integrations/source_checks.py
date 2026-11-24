@@ -137,15 +137,23 @@ def _operation_check(payload: dict, project_id: str, operation_id: str) -> dict:
     recovery = row.get("recovery_class")
     integrity = row.get("artifact_integrity")
     task = row.get("task_id")
-    if (not isinstance(task, str) or recovery not in _OP_RECOVERY
-            or integrity not in {"MATCH", "CHANGED", "MISSING_OR_UNAVAILABLE", "NOT_REPORTED"}):
+    phase = row.get("phase")
+    expected_recovery = {
+        "PLANNED": "VERIFY_ACTUAL_EXECUTION",
+        "RUNNING_DECLARED": "VERIFY_ACTUAL_EXECUTION",
+    }
+    if (not isinstance(task, str) or not task or recovery not in _OP_RECOVERY
+            or integrity not in {"MATCH", "CHANGED", "MISSING_OR_UNAVAILABLE", "NOT_REPORTED"}
+            or not isinstance(phase, str)
+            or (phase in expected_recovery and recovery != expected_recovery[phase])
+            or (recovery == "PENDING_SCIENTIFIC_REVIEW" and phase != "ARTIFACT_REPORTED")):
         return {"status": "OPERATION_FIELDS_INVALID", "reconciliation_required": True}
     # No textual receipt, path, note, or unrecognized original fields returned.
     return {
         "status": "SOURCE_OPERATION_REPORTED_ONLY",
         "operation_id": operation_id,
         "task_id_declared": task,
-        "phase_declared": row.get("phase") if isinstance(row.get("phase"), str) else None,
+        "phase_declared": phase,
         "recovery_class": recovery,
         "artifact_integrity_reported": integrity,
         "process_liveness_verified": False,
@@ -174,6 +182,9 @@ def _run_check(payload: dict, project_id: str, run_id: str) -> dict:
             or payload.get("original_contract_valid") is not True
             or payload.get("run_sha256_match") is not True):
         return {"status": "RUN_SOURCE_CONTRACT_INCOMPLETE", "reconciliation_required": True}
+    if (status == "RUN_BYTES_MATCHED_ONLY" and declared != "VALID") or (
+            status == "RUN_SOURCE_MATCHED_ONLY" and declared == "VALID"):
+        return {"status": "RUN_SOURCE_STATUS_CONFLICT", "reconciliation_required": True}
     if status == "RUN_BYTES_MATCHED_ONLY" and payload.get(
             "linked_hash_coverage") != "ALL_DECLARED_REFERENCES_CHECKED":
         return {"status": "RUN_REFERENCES_NOT_CHECKED", "reconciliation_required": True}
@@ -184,7 +195,9 @@ def _run_check(payload: dict, project_id: str, run_id: str) -> dict:
         "split_declared": split,
         "run_status_declared": declared,
         "original_contract_valid": True,
-        "bytes_consistent": True,
+        "run_source_file_consistent": True,
+        "bytes_consistent": status == "RUN_BYTES_MATCHED_ONLY",
+        "linked_artifacts_consistent": status == "RUN_BYTES_MATCHED_ONLY",
         "scientific_validity_verified": False,
         "reconciliation_required": False,
     }
@@ -224,15 +237,25 @@ def inspect_source_chain(
                        resume_status=resume.get("bridge_status"))
     if resume.get("project_id") != project_id:
         return _result(project_id, "SOURCE_PROJECT_ID_MISMATCH")
-    if resume.get("source_status", "").startswith("BLOCKED_"):
+    source_status = resume.get("source_status")
+    if not isinstance(source_status, str):
+        return _result(project_id, "SOURCE_RESUME_STATUS_UNKNOWN")
+    if source_status.startswith("BLOCKED_"):
         return _result(project_id, "SOURCE_PROJECT_BLOCKED",
-                       resume_status=resume.get("source_status"),
+                       resume_status=source_status,
                        active_task_id_declared=resume.get("active_task_id_declared"))
+    if source_status not in {
+            "SOURCE_REVIEW_REQUIRED", "ARTIFACT_REVIEW_PENDING",
+            "NEEDS_RECONCILIATION", "NEEDS_OPERATIONAL_RECONCILIATION",
+    }:
+        return _result(project_id, "SOURCE_RESUME_STATUS_UNKNOWN")
     response = _result(
         project_id, "SOURCE_READ_ONLY_CHECKS_COMPLETE",
         registry_sha256_local_only=config["registry_sha256_local_only"],
-        resume_status=resume.get("source_status"),
+        resume_status=source_status,
         scientific_resume_status=resume.get("scientific_resume_status"),
+        checks_performed=["resume"],
+        check_scope="ONLY_EXPLICITLY_REQUESTED_ORIGINAL_SOURCES",
         active_task_id_declared=resume.get("active_task_id_declared"),
         latest_rule_commit_local_only=resume.get("rule_commit_local_only"),
         operational_reconciliation_required=bool(
@@ -243,6 +266,7 @@ def inspect_source_chain(
     for command, identifier in (("operations", operation_id), ("verify-run", run_id)):
         if identifier is None:
             continue
+        response["checks_performed"].append(command)
         payload, error = _read_cli(
             project_id=project_id, command=command, identifier=identifier,
             python_executable=python, env=env, timeout_seconds=timeout_seconds,
@@ -266,7 +290,8 @@ def inspect_source_chain(
             response["cross_reference_status"] = "ORIGINAL_TASK_ID_MISMATCH"
         else:
             response["cross_reference_status"] = "TASK_ID_DECLARATIONS_MATCH_ONLY"
-    if (response["operational_reconciliation_required"]
+    if (source_status in ("NEEDS_RECONCILIATION", "NEEDS_OPERATIONAL_RECONCILIATION")
+            or response["operational_reconciliation_required"]
             or response["unresolved_operation_count"]):
         response["verification_status"] = "SOURCE_RECONCILIATION_REQUIRED"
     # No execution/science/permission positive state in this function.

@@ -263,3 +263,36 @@ def test_advise_source_lookup_is_opt_in(capsys):
           "--source-run-id","RUN1"]
     assert main(args)==2
     assert "SOURCE_IDS_REQUIRE_WITH_PDRW" in capsys.readouterr().out
+
+
+def test_scientific_reconciliation_report_stays_blocked_without_operation(tmp_path,monkeypatch):
+    env=configured(tmp_path)
+    calls=mock_source(monkeypatch,resume=source_resume(
+        source_status="NEEDS_RECONCILIATION"))
+    result=source_checks.inspect_source_chain("P19",environment=env)
+    assert result["verification_status"]=="SOURCE_RECONCILIATION_REQUIRED"
+    assert result["checks_performed"]==["resume"]
+    assert calls==[]
+    assert result["execution_authorized"] is False
+
+
+def test_run_source_matched_only_not_all_linked_artifacts(tmp_path,monkeypatch):
+    env=configured(tmp_path)
+    payload=run(status="RUN_SOURCE_MATCHED_ONLY",run_status_declared="INVALID")
+    mock_source(monkeypatch,{"verify-run":payload})
+    result=source_checks.inspect_source_chain("P19",run_id="RUN1",environment=env)
+    assert result["run"]["status"]=="RUN_SOURCE_MATCHED_ONLY"
+    assert result["run"]["run_source_file_consistent"] is True
+    assert result["run"]["linked_artifacts_consistent"] is False
+    assert result["run"]["bytes_consistent"] is False
+    assert result["run"]["scientific_validity_verified"] is False
+
+
+def test_inconsistent_receipt_phase_fails_closed(tmp_path,monkeypatch):
+    env=configured(tmp_path)
+    payload=operation(phase="RUNNING_DECLARED",artifact_integrity="MATCH",
+                      recovery_class="PENDING_SCIENTIFIC_REVIEW")
+    mock_source(monkeypatch,{"operations":payload})
+    result=source_checks.inspect_source_chain("P19",operation_id="OP1",environment=env)
+    assert result["verification_status"]=="SOURCE_RECONCILIATION_REQUIRED"
+    assert result["operation"]["status"]=="OPERATION_FIELDS_INVALID"
