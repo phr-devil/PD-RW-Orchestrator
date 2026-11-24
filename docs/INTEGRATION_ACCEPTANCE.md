@@ -51,3 +51,21 @@ A source byte match is not science or a grant. Still missing: authenticated
 original H6 scope, trusted real-project operation/process binding,
 actual provider isolation and measured real Agent handoff. These are
 release blockers for a real-execution v1.0, not synthetic test failures.
+
+## Lifecycle audit follow-up
+
+The pinned Agent RC host/authorization.py validates DEV declarations via
+host/contracts.py; preview_dev_admission returns TRUSTED_HOST_NOT_CONNECTED
+or PROJECT_MACHINE_STATE_BLOCKED, never execution_authorized. The
+submit_dev_in_trusted_host and register_run_in_trusted_host interfaces
+are deliberately disabled. Do not connect a caller-provided callback or
+a grant JSON as a substitute. A separate trusted OS/tool host must enforce
+original authority, frozen task/code/dataset bindings, filesystem scope,
+process isolation and resource limits. Orchestrator can reuse the existing
+DEV proposal shape and preview, but cannot implement a real grant by
+itself. Ordinary existing-scope DEV should not require fresh author
+approval when that original grant is verifiable.
+
+Local plan integrity and cross-plan unresolved-intent protection now
+prevent accidental re-reservation. This does not authenticate the DB,
+establish dependency evidence validity or replace the upstream receipts.

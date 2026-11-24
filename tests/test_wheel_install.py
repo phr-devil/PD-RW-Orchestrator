@@ -47,6 +47,9 @@ def test_regular_wheel_supports_contract_and_fixed_fixture(tmp_path):
         wheel.extractall(extracted)
     environment = dict(os.environ)
     environment["PYTHONPATH"] = str(extracted)
+    environment["PDRW_ORCH_RUNTIME_DIR"] = str(tmp_path / "private-runtime")
+    for key in ("PDRW_RUNTIME_DIR", "PDRW_AGENT_CONFIG", "PDRW_WORKFLOW_ROOT", "PDRW_CASE_LIBRARY_ROOT"):
+        environment.pop(key, None)
     script = (
         "from pdrw_orchestrator.assets import data_root;"
         "from pdrw_orchestrator.adapters.codex import verify_fixture,output_schema_path;"
@@ -54,7 +57,12 @@ def test_regular_wheel_supports_contract_and_fixed_fixture(tmp_path):
         "assert data_root().name == 'bundled',data_root();"
         "assert verify_fixture().is_dir();"
         "assert output_schema_path().is_file();"
-        "assert main(['codex','contract']) == 0"
+        "assert main(['codex','contract']) == 0;"
+        "from pdrw_orchestrator.runtime.store import stage_plan,inspect_plan;"
+        "from pdrw_orchestrator.models import TaskPacket;"
+        "t=TaskPacket('T','P','review','Synthetic',idempotency_key='T-key');"
+        "assert stage_plan('wheel',(t,))['status']=='STAGED_NOT_AUTHORIZED';"
+        "assert inspect_plan('P','wheel')['uncertain_intent_count']==0"
     )
     launched = subprocess.run(
         [sys.executable, "-c", script], cwd=tmp_path, env=environment,

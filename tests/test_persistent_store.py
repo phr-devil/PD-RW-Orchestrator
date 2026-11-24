@@ -170,3 +170,74 @@ def test_attempt_ids_unique_within_operational_plan(tmp_path):
     mark_intent_uncertain("P19", "plan2", "A", "attempt-1", environment=e)
     with pytest.raises(ValueError, match="INTENT_ID_ALREADY_RESERVED"):
         mark_intent_uncertain("P19", "plan2", "B", "attempt-1", environment=e)
+
+
+def test_replan_cannot_duplicate_unresolved_task_or_idempotency_key(tmp_path):
+    e = env(tmp_path)
+    stage_plan("one", (plan()[0],), environment=e)
+    mark_intent_uncertain("P19","one","A","attempt-1",environment=e)
+    for name, task in (
+        ("same-task", TaskPacket("A","P19","review","Changed objective",idempotency_key="new-key")),
+        ("same-key", TaskPacket("C","P19","review","Alternate",idempotency_key="A-stable")),
+        ("same-attempt", TaskPacket("D","P19","review","Alternate",idempotency_key="D-key")),
+    ):
+        stage_plan(name,(task,),environment=e)
+        attempt = "attempt-1" if name == "same-attempt" else "attempt-2"
+        with pytest.raises(ValueError,match="CROSS_PLAN_UNRESOLVED_INTENT_NO_RETRY"):
+            mark_intent_uncertain("P19",name,task.task_id,attempt,environment=e)
+        assert inspect_plan("P19",name,environment=e)["uncertain_intent_count"]==0
+    independent=TaskPacket("E","P19","review","Independent task",idempotency_key="E-key")
+    stage_plan("independent",(independent,),environment=e)
+    assert mark_intent_uncertain("P19","independent","E","attempt-3",environment=e)["status"]=="INTENT_UNCERTAIN_NO_DISPATCH"
+
+
+@pytest.mark.parametrize("statement", [
+    "UPDATE tasks SET packet_json='{}' WHERE task_id='A'",
+    "UPDATE tasks SET phase='COMPLETE' WHERE task_id='A'",
+    "DELETE FROM tasks WHERE task_id='B'",
+    "UPDATE plans SET digest='forged'",
+])
+def test_corrupt_plan_never_reused_or_reserved(tmp_path,statement,monkeypatch):
+    from pdrw_orchestrator.runtime.store import has_exact_intent
+    e=env(tmp_path)
+    stage_plan("one",plan(),environment=e)
+    with sqlite3.connect(tmp_path/"private-runtime"/"orchestrator.sqlite") as db:
+        db.execute(statement)
+    monkeypatch.setenv("PDRW_ORCH_RUNTIME_DIR",e["PDRW_ORCH_RUNTIME_DIR"])
+    for fn in (
+        lambda: stage_plan("one",plan(),environment=e),
+        lambda: inspect_plan("P19","one",environment=e),
+        lambda: mark_intent_uncertain("P19","one","A","attempt-1",environment=e),
+        lambda: has_exact_intent("P19","one","A","attempt-1"),
+    ):
+        with pytest.raises(ValueError,match="PERSISTED_PLAN_INTEGRITY_CONFLICT"):
+            fn()
+
+
+def test_upstream_runtime_is_protected_and_invalid_map_is_controlled(tmp_path):
+    e=env(tmp_path)
+    with pytest.raises(ValueError,match="OVERLAPS_PROTECTED_ROOT"):
+        stage_plan("one",plan(),environment={**e,"PDRW_RUNTIME_DIR":e["PDRW_ORCH_RUNTIME_DIR"]})
+    config=tmp_path/"config"/"map.json"
+    config.parent.mkdir()
+    config.write_text("[]",encoding="utf-8")
+    with pytest.raises(ValueError,match="PROJECT_MAP_UNREADABLE"):
+        stage_plan("one",plan(),environment={**e,"PDRW_AGENT_CONFIG":str(config)})
+
+
+def test_invalid_task_id_does_not_create_store(tmp_path):
+    with pytest.raises(ValueError,match="invalid task_id"):
+        stage_plan("one",(TaskPacket("../bad","P19","review","Synthetic",idempotency_key="key"),),environment=env(tmp_path))
+    assert not (tmp_path/"private-runtime").exists()
+
+
+def test_database_hardlink_rejected(tmp_path):
+    import os
+    e=env(tmp_path)
+    stage_plan("one",plan(),environment=e)
+    try:
+        os.link(tmp_path/"private-runtime"/"orchestrator.sqlite",tmp_path/"other.db")
+    except OSError:
+        pytest.skip("hardlink unavailable on host")
+    with pytest.raises(ValueError,match="DATABASE_REDIRECTED"):
+        inspect_plan("P19","one",environment=e)

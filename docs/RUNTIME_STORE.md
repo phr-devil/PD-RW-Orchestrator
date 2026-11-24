@@ -42,3 +42,23 @@ are migrated by adding one nullable column. Reserving a task still returns
 `INTENT_UNCERTAIN_NO_DISPATCH`; it does not start an Agent, grant permission
 or allow blind restart. A real host must verify actual process state and original
 PD-RW operation receipts before authorizing any execution.
+
+## Pre-RC integrity and cross-plan reconciliation
+
+Each staged plan is revalidated against task hashes, the plan hash, DAG
+and phase/intent consistency before reuse, inspection or reservation.
+Hashes detect inconsistent local records, not a hostile rewrite of the
+whole DB. A same-project non-PILOT reservation with the same task ID,
+idempotency key or intent ID in another unresolved plan is rejected,
+even when a new plan ID was chosen. Staging an alternative remains legal;
+different projects and independent tasks are not globally blocked.
+PILOT remains a fixed synthetic-only path with separate explicitly
+opted-in plan sessions. This is not a cross-runtime or upstream global
+exactly-once guarantee. Existing unresolved records are preserved; do
+not delete them merely to get around the guard. No new scientific ledger.
+
+The original PD-RW runtime directory is also protected from overlap.
+Installed Wheels protect their own package directory rather than an
+arbitrary parent of the interpreter's site-packages. DB leaf and SQLite
+sidecars reject symlinks/reparse points/hard links; the private runtime
+directory must still be operator-owned and is not an OS sandbox.

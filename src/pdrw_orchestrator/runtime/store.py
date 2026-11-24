@@ -19,6 +19,7 @@ from typing import Mapping
 
 from .dependencies import DependencyEvidence, DependencyReviewPort
 
+from pdrw_orchestrator.assets import data_root
 from pdrw_orchestrator.controller import order_tasks
 from pdrw_orchestrator.models import TaskPacket
 
@@ -63,8 +64,9 @@ def _store_path(*, environment: Mapping[str, str] | None = None,
         raise ValueError("PDRW_ORCH_RUNTIME_DIR_NOT_ABSOLUTE")
     directory = unexpanded.resolve()
     # The orchestrator checkout and all authoritative project/CASE roots are protected.
-    protected = [Path(__file__).resolve().parents[3]]
-    for key in ("PDRW_WORKFLOW_ROOT", "PDRW_CASE_LIBRARY_ROOT"):
+    resources = data_root()
+    protected = [resources.parent if resources.name == "bundled" else resources]
+    for key in ("PDRW_WORKFLOW_ROOT", "PDRW_CASE_LIBRARY_ROOT", "PDRW_RUNTIME_DIR"):
         if env.get(key):
             protected.append(Path(env[key]).expanduser().resolve())
     project_map = env.get("PDRW_AGENT_CONFIG")
@@ -74,7 +76,13 @@ def _store_path(*, environment: Mapping[str, str] | None = None,
         if not path.is_file() or path.stat().st_size > 128 * 1024:
             raise ValueError("PDRW_PROJECT_MAP_UNAVAILABLE")
         try:
-            mapping = json.loads(path.read_text(encoding="utf-8-sig"))
+            with path.open("rb") as stream:
+                raw = stream.read(128 * 1024 + 1)
+            if len(raw) > 128 * 1024:
+                raise ValueError("project map oversized")
+            mapping = json.loads(raw.decode("utf-8-sig"))
+            if not isinstance(mapping, dict) or mapping.get("schema_version", 1) != 1:
+                raise ValueError("invalid project map schema")
             projects = mapping.get("projects")
             if not isinstance(projects, dict):
                 raise ValueError("invalid project map")
@@ -91,8 +99,9 @@ def _store_path(*, environment: Mapping[str, str] | None = None,
     elif not directory.is_dir():
         return None
     db_path = directory / _DB_NAME
-    if _is_redirected(db_path):
-        raise ValueError("RUNTIME_DATABASE_REDIRECTED")
+    for leaf in (db_path, *(directory / (_DB_NAME + suffix) for suffix in ("-journal", "-wal", "-shm"))):
+        if _is_redirected(leaf) or (leaf.exists() and (not leaf.is_file() or leaf.stat().st_nlink > 1)):
+            raise ValueError("RUNTIME_DATABASE_REDIRECTED")
     return db_path
 
 
@@ -133,6 +142,8 @@ def _database(path: Path, *, write: bool):
     db.row_factory = sqlite3.Row
     try:
         db.execute("PRAGMA busy_timeout=10000")
+        if not write:
+            db.execute("BEGIN")  # one consistent read snapshot for plan and task rows
         if write:
             db.execute("BEGIN IMMEDIATE")
             for statement in _SCHEMA.strip().split(";"):
@@ -158,6 +169,73 @@ def _hash(value: object) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
+def _verified_plan(db, project_id, plan_id):
+    """Check persisted declarations before reuse; hashes are not authentication."""
+    plan = db.execute(
+        "SELECT digest FROM plans WHERE project_id=? AND plan_id=?",
+        (project_id, plan_id)).fetchone()
+    if plan is None:
+        return None, []
+    rows = db.execute(
+        "SELECT task_id,digest,packet_json,phase,intent_id FROM tasks "
+        "WHERE project_id=? AND plan_id=? ORDER BY task_id LIMIT 65",
+        (project_id, plan_id)).fetchall()
+    packets, parsed, keys, intents = {}, [], set(), set()
+    try:
+        if not 1 <= len(rows) <= 64:
+            raise ValueError("task count")
+        for row in rows:
+            packet = json.loads(row["packet_json"])
+            task = TaskPacket(**packet)
+            _identifier(task.task_id, "task_id")
+            _identifier(task.idempotency_key, "idempotency_key")
+            if (task.project_id != project_id or task.task_id != row["task_id"]
+                    or _hash(packet) != row["digest"] or task.idempotency_key in keys):
+                raise ValueError("task identity or digest")
+            keys.add(task.idempotency_key)
+            intent = row["intent_id"]
+            if row["phase"] != ("INTENT_UNCERTAIN" if intent is not None else "STAGED_NOT_AUTHORIZED"):
+                raise ValueError("phase conflict")
+            if intent is not None:
+                _identifier(intent, "intent_id")
+                if intent in intents:
+                    raise ValueError("duplicate intent")
+                intents.add(intent)
+            packets[task.task_id] = packet
+            parsed.append(task)
+        order_tasks(tuple(parsed))
+        if _hash(packets) != plan["digest"]:
+            raise ValueError("plan digest")
+    except (ValueError, TypeError, KeyError) as exc:
+        raise ValueError("PERSISTED_PLAN_INTEGRITY_CONFLICT_NO_RETRY") from exc
+    return plan, rows
+
+
+def _check_cross_plan_intent(db, project_id, plan_id, task, intent_id):
+    """Non-PILOT idempotency applies across plans within the same project.
+
+    A replan may stage alternative tasks, but cannot reserve an unresolved
+    task/operation again under another plan. Synthetic test sessions retain
+    independent explicit plan identities.
+    """
+    if project_id == "PILOT":
+        return
+    rows = db.execute(
+        "SELECT DISTINCT plan_id FROM tasks WHERE project_id=? AND plan_id<>? "
+        "AND intent_id IS NOT NULL LIMIT 1001", (project_id, plan_id)).fetchall()
+    if len(rows) > 1000:
+        raise ValueError("CROSS_PLAN_REVIEW_LIMIT_NO_RETRY")
+    for other in rows:
+        _, previous = _verified_plan(db, project_id, other["plan_id"])
+        for row in previous:
+            if row["intent_id"] is None:
+                continue
+            packet = json.loads(row["packet_json"])
+            if (row["task_id"] == task.task_id or row["intent_id"] == intent_id
+                    or packet["idempotency_key"] == task.idempotency_key):
+                raise ValueError("CROSS_PLAN_UNRESOLVED_INTENT_NO_RETRY")
+
+
 def stage_plan(plan_id: str, tasks: tuple[TaskPacket, ...],
                *, environment: Mapping[str, str] | None = None) -> dict:
     """Register an immutable operational task graph; never starts any agent."""
@@ -170,14 +248,14 @@ def stage_plan(plan_id: str, tasks: tuple[TaskPacket, ...],
         raise ValueError("TASK_IDEMPOTENCY_KEYS_REQUIRED_UNIQUE")
     project_id = ordered[0].project_id
     _identifier(project_id, "project_id")
+    for task in ordered:
+        _identifier(task.task_id, "task_id")
     normalized = {t.task_id: t.to_dict() for t in ordered}
     digest = _hash(normalized)
     path = _store_path(environment=environment, create=True)
     assert path is not None
     with _database(path, write=True) as db:
-        existing = db.execute(
-            "SELECT digest FROM plans WHERE project_id=? AND plan_id=?",
-            (project_id, plan_id)).fetchone()
+        existing, _ = _verified_plan(db, project_id, plan_id)
         if existing:
             if existing["digest"] != digest:
                 raise ValueError("PLAN_ID_CONFLICT_NO_OVERWRITE")
@@ -213,16 +291,11 @@ def inspect_plan(project_id: str, plan_id: str,
         return {"status": "NO_PLAN_STORE", "project_id": project_id, "plan_id": plan_id,
                 "restart_permitted": False, "execution_authorized": False}
     with _database(path, write=False) as db:
-        plan = db.execute(
-            "SELECT digest FROM plans WHERE project_id=? AND plan_id=?",
-            (project_id, plan_id)).fetchone()
+        plan, rows = _verified_plan(db, project_id, plan_id)
         if plan is None:
             return {"status": "PLAN_NOT_FOUND", "project_id": project_id,
                     "plan_id": plan_id, "restart_permitted": False,
                     "execution_authorized": False}
-        rows = db.execute(
-            "SELECT task_id,phase,intent_id FROM tasks WHERE project_id=? AND plan_id=? "
-            "ORDER BY task_id", (project_id, plan_id)).fetchall()
     tasks = [{"task_id": r["task_id"], "phase": r["phase"],
               "has_recorded_dispatch_intent": r["intent_id"] is not None} for r in rows]
     uncertain = sum(row["has_recorded_dispatch_intent"] for row in tasks)
@@ -249,9 +322,8 @@ def mark_intent_uncertain(project_id: str, plan_id: str, task_id: str, intent_id
     if path is None or not path.is_file():
         raise ValueError("PLAN_STORE_MISSING")
     with _database(path, write=True) as db:
-        row = db.execute(
-            "SELECT phase,intent_id,packet_json FROM tasks WHERE project_id=? AND plan_id=? AND task_id=?",
-            (project_id, plan_id, task_id)).fetchone()
+        _, rows = _verified_plan(db, project_id, plan_id)
+        row = next((item for item in rows if item["task_id"] == task_id), None)
         if row is None:
             raise ValueError("TASK_NOT_STAGED")
         if row["intent_id"] is not None:
@@ -259,7 +331,9 @@ def mark_intent_uncertain(project_id: str, plan_id: str, task_id: str, intent_id
                 raise ValueError("UNCERTAIN_INTENT_EXISTS_NO_RETRY")
             status = "ALREADY_MARKED_UNCERTAIN_NO_RETRY"
         else:
-            dependencies = tuple(json.loads(row["packet_json"]).get("dependencies", []))
+            task = TaskPacket(**json.loads(row["packet_json"]))
+            _check_cross_plan_intent(db, project_id, plan_id, task, intent_id)
+            dependencies = tuple(task.dependencies)
             reviewed_refs = []
             if dependencies:
                 if dependency_reviewer is None:
@@ -334,7 +408,6 @@ def has_exact_intent(project_id: str, plan_id: str, task_id: str, attempt_id: st
     if path is None or not path.is_file() or path.is_symlink():
         return False
     with _database(path, write=False) as db:
-        row = db.execute(
-            "SELECT intent_id,phase FROM tasks WHERE project_id=? AND plan_id=? AND task_id=?",
-            (project_id, plan_id, task_id)).fetchone()
+        _, rows = _verified_plan(db, project_id, plan_id)
+        row = next((item for item in rows if item["task_id"] == task_id), None)
     return row is not None and row["intent_id"] == attempt_id and row["phase"] == "INTENT_UNCERTAIN"
