@@ -86,7 +86,9 @@ def propose_next_task(previous: TaskPacket, normalized: dict[str, Any], decision
         "task_type": task_type,
         "capability": capability,
         "objective": objective,
-        "acceptance_criteria": list(_ACCEPTANCE),
+        "acceptance_criteria": list(_ACCEPTANCE) + ([
+            "For each proposed next check state the unresolved premise, existing evidence reuse, minimum lawful test, discriminating outcomes, estimated resource cost and stop rule; choose one only if it can change the decision."
+        ] if kind in ("INDEPENDENT_REVIEW", "REVISE_PLAN") else []),
         "stop_conditions": list(_STOP),
         "original_protocol_refs": list(previous.protocol_refs),
         "original_evidence_refs": list(previous.evidence_refs),

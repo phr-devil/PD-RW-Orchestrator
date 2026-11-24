@@ -22,6 +22,7 @@ from .decision import decide_next
 from .instruction import build_bundle
 from .integrations.pdrw import inspect_resume, pdrw_status
 from .integrations.experience import retrieve_for_task
+from .experience_evaluation import screen_lessons, feedback_candidate, evaluate_pairs
 from .integrations.source_checks import inspect_source_chain
 from .planner import demo_plan
 from .policy import load_policy, compile_guidance
@@ -135,8 +136,13 @@ def build_parser() -> argparse.ArgumentParser:
     advice.add_argument("--experience-config", help="Operator-owned local Experience trust configuration")
     advice.add_argument("--experience-query", help="Explicit search terms; never copied from Agent output")
     advice.add_argument("--experience-as-of", help="Original task visibility cutoff YYYY-MM-DD")
+    advice.add_argument("--experience-applicability", help="Optional operator-declared condition evidence for proposed task")
     advice.add_argument("--save", action="store_true",
                         help="Save handoff.json/md into private PDRW_ORCH_RUNTIME_DIR")
+    exp = commands.add_parser("experience", help="Offline feedback candidate and matched-pair audit")
+    exp.add_argument("action", choices=["feedback", "evaluate"])
+    exp.add_argument("--assessment", required=True)
+    exp.add_argument("--handoff")
     return parser
 
 
@@ -299,6 +305,16 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "demo":
             report = run_demo(demo_plan(), load_agents(args.agents), load_policy(args.policy))
             result = report.to_dict()
+        elif args.command == "experience":
+            assessment = _bounded_json_file(args.assessment, "ASSESSMENT")
+            if args.action == "feedback":
+                if not args.handoff:
+                    raise ValueError("FEEDBACK_HANDOFF_REQUIRED")
+                result = feedback_candidate(_bounded_json_file(args.handoff, "HANDOFF"), assessment)
+            else:
+                if args.handoff:
+                    raise ValueError("EVALUATION_HANDOFF_NOT_USED")
+                result = evaluate_pairs(assessment)
         elif args.command == "advise":
             task = TaskPacket(**_bounded_json_file(args.task_file, "TASK"))
             original = _bounded_json_file(args.result_file, "RESULT")
@@ -341,7 +357,7 @@ def main(argv: list[str] | None = None) -> int:
             decision = decide_next(task, normalized, guidance, load_agents(args.agents), source_context=context)
             proposed = policy_task_for_proposal(decision["next_task"])
             extra, retrieval = (), None
-            if args.experience_config or args.experience_query or args.experience_as_of:
+            if args.experience_config or args.experience_query or args.experience_as_of or args.experience_applicability:
                 if not (args.experience_config and args.experience_query and args.experience_as_of):
                     raise ValueError("EXPERIENCE_CONFIG_QUERY_AND_CUTOFF_REQUIRED")
                 if decision["decision_type"] in ("INDEPENDENT_REVIEW", "REVISE_PLAN"):
@@ -354,6 +370,11 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     retrieval = {"status": "EXPERIENCE_SKIPPED_NON_RESEARCH_NEXT_ACTION",
                                  "permission_granted": False, "model_calls_requested": 0}
+            if retrieval is not None:
+                condition_context = (_bounded_json_file(args.experience_applicability, "APPLICABILITY")
+                                     if args.experience_applicability and extra else None)
+                extra, screened = screen_lessons(proposed, extra, condition_context)
+                retrieval["applicability_screen"] = screened
             next_guidance = compile_guidance(proposed, all_rules + extra)
             result = build_bundle(task, normalized, decision, guidance,
                                   next_guidance=next_guidance, source_context=context)
@@ -362,6 +383,10 @@ def main(argv: list[str] | None = None) -> int:
                     item["id"] for item in next_guidance.selected_items
                     if item["level"] == "experience" and item["id"] in {r.id for r in extra}]
                 result["experience_retrieval"] = retrieval
+                if retrieval.get("selected_experience_rule_ids"):
+                    result["agent_instruction_draft"] += ("\nExperience advice is a hypothesis to check, not a finding or reason to abandon a claim. "
+                        "Verify all applicable conditions against original evidence; if unknown, compare the cheapest lawful discriminating check. "
+                        "Record any suspected negative transfer separately from the scientific outcome.\n")
                 result["chatgpt_handoff_md"] += (
                     "\n## Experience retrieval (advisory, conditions unverified)\n"
                     + json.dumps(retrieval, ensure_ascii=False) + "\n"
