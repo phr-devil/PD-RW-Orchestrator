@@ -21,3 +21,12 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+pdrw_orchestrator = [
+  "bundled/configs/*.yaml",
+  "bundled/policies/user/*.yaml",
+  "bundled/examples/codex-pilot/*.md",
+  "bundled/examples/codex-pilot/*.py",
+  "bundled/schemas/*.json",
+]

@@ -19,6 +19,7 @@ from typing import Any
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 from pdrw_orchestrator.contracts import render_pilot_contract
+from pdrw_orchestrator.assets import data_root
 
 _MAX_OUTPUT_BYTES = 64 * 1024
 # Pinned contents of the public synthetic pilot, NOT arbitrary repo files.
@@ -34,13 +35,12 @@ _REQUIRED_FLAGS = (
 
 
 def fixture_root() -> Path:
-    root = Path(__file__).resolve().parents[3] / "examples" / "codex-pilot"
+    root = data_root() / "examples" / "codex-pilot"
     return root.resolve()
 
 
 def output_schema_path() -> Path:
-    return (Path(__file__).resolve().parents[3] /
-            "schemas" / "codex-pilot-response.schema.json").resolve()
+    return (data_root() / "schemas" / "codex-pilot-response.schema.json").resolve()
 
 
 def resolve_codex_executable(executable: str | None = None) -> Path | None:
@@ -106,7 +106,7 @@ def verify_fixture() -> Path:
     if not fixture.is_dir() or not schema.is_file():
         raise ValueError("PILOT_FIXTURE_OR_SCHEMA_MISSING")
     # Validate the actual checked-out fixture; no path from a model or task is accepted.
-    root = Path(__file__).resolve().parents[3]
+    root = data_root()
     if fixture.parent != root / "examples":
         raise ValueError("PILOT_FIXTURE_PATH_UNEXPECTED")
     entries = list(fixture.iterdir())

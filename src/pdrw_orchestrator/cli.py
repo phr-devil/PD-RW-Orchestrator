@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 
 from .agent_result import normalize_result
+from .assets import data_root
 from .adapters.codex import probe_codex
 from .capabilities import accept_codex_pilot_probe
 from .contracts import compile_pilot_contract, contract_sha256
@@ -29,7 +30,7 @@ from .runtime.store import (
 
 
 def _repository_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return data_root()
 
 
 def _load_plan_file(path: str) -> tuple[str, tuple[TaskPacket, ...]]:

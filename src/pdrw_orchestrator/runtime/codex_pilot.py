@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 from jsonschema import Draft202012Validator
 
+from pdrw_orchestrator.assets import data_root
 from pdrw_orchestrator.adapters.codex import (
     probe_codex, run_readonly_pilot, verify_fixture,
 )
@@ -111,7 +112,7 @@ def run_codex_pilot(
         return {"status": "NOT_CONNECTED", "probe": probe.to_dict(),
                 "model_invoked": False}
     task = pilot_task()
-    schema_path = Path(__file__).resolve().parents[3] / "schemas" / "codex-pilot-response.schema.json"
+    schema_path = data_root() / "schemas" / "codex-pilot-response.schema.json"
     Draft202012Validator.check_schema(json.loads(schema_path.read_text(encoding="utf-8")))
     rules = load_policy(policy_path)
     agents = load_agents(registry_path)
