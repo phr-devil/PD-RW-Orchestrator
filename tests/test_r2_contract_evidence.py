@@ -208,3 +208,70 @@ def test_codex_nonexecution_cli_disallows_execution_flags(capsys,action):
     from pdrw_orchestrator.cli import main
     assert main(["codex",action,"--execute","--ack-external-model"])==2
     assert "CODEX_READONLY_ACTION_REJECTS_EXECUTION_FLAGS" in capsys.readouterr().out
+
+
+
+def test_local_receipt_rejects_contradictory_success_without_output(tmp_path):
+    c = contract()
+    write_pilot_contract(tmp_path, c)
+    write_pilot_receipt(
+        tmp_path, contract=c, project_id="PILOT", task_id="CODEX-READ-001",
+        attempt_id="missing-output", codex_version="synthetic",
+        invocation={"status": "STRUCTURED_OUTPUT_RECEIVED", "returncode": 0},
+    )
+    result = inspect_pilot_receipt(
+        tmp_path, project_id="PILOT", task_id="CODEX-READ-001",
+        attempt_id="missing-output")
+    assert result["status"] == "HOST_RECEIPT_RECONCILIATION_REQUIRED"
+    assert result["scientific_completion_verified"] is False
+
+
+def test_local_receipt_rejects_nonpilot_contract_even_when_hashes_match(tmp_path):
+    c = {**contract(), "project_id": "private-research"}
+    write_pilot_contract(tmp_path, c)
+    output = tmp_path / "codex-final.json"
+    output.write_text('{"synthetic": true}', encoding="utf-8")
+    write_pilot_receipt(
+        tmp_path, contract=c, project_id="PILOT", task_id="CODEX-READ-001",
+        attempt_id="same-hash", codex_version="synthetic",
+        invocation={"status": "STRUCTURED_OUTPUT_RECEIVED", "returncode": 0},
+    )
+    checked = inspect_pilot_receipt(
+        tmp_path, project_id="PILOT", task_id="CODEX-READ-001",
+        attempt_id="same-hash")
+    assert checked["status"] == "HOST_RECEIPT_RECONCILIATION_REQUIRED"
+    assert checked["authorization_verified"] is False
+
+
+@pytest.mark.parametrize("contradiction", [
+    {"status": "TIMEOUT_PROCESS_STATE_UNCERTAIN", "returncode": 0},
+    {"status": "PROCESS_FAILED", "returncode": 0},
+    {"status": "INVALID_MACHINE_READABLE_OUTPUT", "returncode": 17},
+])
+def test_local_receipt_rejects_inconsistent_return_codes(tmp_path, contradiction):
+    c = contract()
+    write_pilot_contract(tmp_path, c)
+    write_pilot_receipt(
+        tmp_path, contract=c, project_id="PILOT", task_id="CODEX-READ-001",
+        attempt_id="bad-code", codex_version="synthetic",
+        invocation=contradiction,
+    )
+    checked = inspect_pilot_receipt(
+        tmp_path, project_id="PILOT", task_id="CODEX-READ-001",
+        attempt_id="bad-code")
+    assert checked["status"] == "HOST_RECEIPT_RECONCILIATION_REQUIRED"
+
+
+def test_local_receipt_accepts_timeout_as_non-success_without_output(tmp_path):
+    c = contract()
+    write_pilot_contract(tmp_path, c)
+    write_pilot_receipt(
+        tmp_path, contract=c, project_id="PILOT", task_id="CODEX-READ-001",
+        attempt_id="timeout", codex_version="synthetic",
+        invocation={"status": "TIMEOUT_PROCESS_STATE_UNCERTAIN", "returncode": None},
+    )
+    checked = inspect_pilot_receipt(
+        tmp_path, project_id="PILOT", task_id="CODEX-READ-001",
+        attempt_id="timeout")
+    assert checked["status"] == "LOCAL_RECEIPT_MATCH_NO_OUTPUT"
+    assert checked["restart_permitted"] is False

@@ -24,7 +24,10 @@ def _checked_bytes(path: Path, maximum: int) -> bytes:
         raise ValueError("HOST_ARTIFACT_MISSING_OR_SYMLINK")
     if path.stat().st_size > maximum:
         raise ValueError("HOST_ARTIFACT_TOO_LARGE")
-    return path.read_bytes()
+    data = path.read_bytes()
+    if len(data) > maximum:
+        raise ValueError("HOST_ARTIFACT_CHANGED_DURING_READ")
+    return data
 
 
 def _digest(data: bytes) -> str:
@@ -92,6 +95,19 @@ def inspect_pilot_receipt(
             run_dir / "host-execution.json", _MAX_RECEIPT_BYTES))
         contract_data = _checked_bytes(run_dir / "task-contract.json", _MAX_CONTRACT_BYTES)
         contract = json.loads(contract_data)
+        # Contract and receipt are both local, user-controlled files. Before
+        # declaring even *local* consistency, enforce the immutable synthetic
+        # pilot boundary, not merely two matching hashes.
+        if (not isinstance(contract, dict)
+                or contract.get("schema_version") != "1.0"
+                or contract.get("mode") != "PILOT_READONLY_SYNTHETIC_ONLY"
+                or contract.get("project_id") != project_id
+                or contract.get("task_id") != task_id
+                or contract.get("required_effects") != []
+                or contract.get("authorization_verified") is not False
+                or contract.get("scientific_completion_verified") is not False
+                or contract.get("dispatch_authorized_by_contract") is not False):
+            raise ValueError("HOST_CONTRACT_SCOPE_INVALID")
         if (receipt.get("schema_version") != "1.0" or
                 receipt.get("origin") != "LOCAL_SUBPROCESS_OBSERVATION" or
                 receipt.get("project_id") != project_id or
@@ -108,6 +124,31 @@ def inspect_pilot_receipt(
         if expected_contract_sha256 is not None and actual_sha != expected_contract_sha256:
             raise ValueError("HOST_EXPECTED_CONTRACT_MISMATCH")
         expected_output = receipt.get("structured_output_sha256")
+        status = receipt.get("outcome")
+        code = receipt.get("process_returncode")
+        if status not in {
+            "STRUCTURED_OUTPUT_RECEIVED", "TIMEOUT_PROCESS_STATE_UNCERTAIN",
+            "PROCESS_LAUNCH_FAILED_UNCERTAIN", "PROCESS_FAILED",
+            "NO_MACHINE_READABLE_OUTPUT", "OUTPUT_EXCEEDS_LIMIT",
+            "INVALID_MACHINE_READABLE_OUTPUT",
+        } or (code is not None and type(code) is not int):
+            raise ValueError("HOST_EXECUTION_STATUS_INVALID")
+        if (status == "STRUCTURED_OUTPUT_RECEIVED"
+                and (code != 0 or not isinstance(expected_output, str))):
+            raise ValueError("HOST_SUCCESS_OUTPUT_CONTRADICTION")
+        if status in ("TIMEOUT_PROCESS_STATE_UNCERTAIN",
+                      "PROCESS_LAUNCH_FAILED_UNCERTAIN") and code is not None:
+            raise ValueError("HOST_UNCERTAIN_PROCESS_CONTRADICTION")
+        if status == "PROCESS_FAILED" and (code is None or code == 0):
+            raise ValueError("HOST_FAILED_PROCESS_CONTRADICTION")
+        if status in ("NO_MACHINE_READABLE_OUTPUT", "OUTPUT_EXCEEDS_LIMIT",
+                      "INVALID_MACHINE_READABLE_OUTPUT") and code != 0:
+            raise ValueError("HOST_RETURN_CODE_CONTRADICTION")
+        if (expected_output is not None and
+                (not isinstance(expected_output, str)
+                 or len(expected_output) != 64
+                 or any(ch not in "0123456789abcdef" for ch in expected_output))):
+            raise ValueError("HOST_OUTPUT_DIGEST_INVALID")
         output_file = run_dir / "codex-final.json"
         if expected_output is None:
             if output_file.exists() or output_file.is_symlink():
