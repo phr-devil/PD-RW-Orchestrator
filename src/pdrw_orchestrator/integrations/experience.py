@@ -122,7 +122,7 @@ def retrieve_for_task(task, *, config_path, query, as_of, limit=3):
         base["query_sha256"] = _sha(query.encode("utf-8"))
         cfg = _config(config_path)
         before = _snapshot(cfg)
-        argv = [str(cfg["python"]), "-I", "-B", "-c", _ENTRY, "retrieve",
+        argv = [str(cfg["python"]), "-I", "-B", "-X", "utf8", "-c", _ENTRY, "retrieve",
                 str(cfg["lessons"]), "--cases", str(cfg["cases"]),
                 "--task-type=" + task.task_type, "--query=" + query,
                 "--as-of=" + as_of, "--limit", str(limit),
