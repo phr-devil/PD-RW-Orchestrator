@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from importlib.util import find_spec
 from pathlib import Path
 from typing import Mapping
@@ -81,27 +82,37 @@ def inspect_resume(
 
     argv = [executable, "-m", "pdrw_agent.cli", "resume", "--project-id", project_id]
     try:
-        completed = subprocess.run(
-            argv, capture_output=True, text=True, encoding="utf-8",
-            errors="replace", timeout=timeout_seconds, check=False, env=env,
-        )
+        # Redirect stdout to a private OS file, then read only MAX+1 bytes.
+        # capture_output=True would allocate arbitrary upstream output in RAM.
+        with tempfile.TemporaryFile(mode="w+b") as sink:
+            completed = subprocess.run(
+                argv, stdout=sink, stderr=subprocess.DEVNULL,
+                timeout=timeout_seconds, check=False, env=env,
+            )
+            sink.seek(0)
+            output = sink.read(_MAX_STDOUT_BYTES + 1)
+            if len(output) > _MAX_STDOUT_BYTES:
+                return _blocked("UPSTREAM_OUTPUT_TOO_LARGE", project_id)
     except subprocess.TimeoutExpired:
         return _blocked("UPSTREAM_TIMEOUT_NO_RETRY", project_id)
     except OSError:
         return _blocked("UPSTREAM_PROCESS_UNAVAILABLE", project_id)
-    output = completed.stdout
-    if len(output.encode("utf-8")) > _MAX_STDOUT_BYTES:
-        return _blocked("UPSTREAM_OUTPUT_TOO_LARGE", project_id)
     try:
-        payload = json.loads(output)
-    except (TypeError, ValueError):
-        return _blocked("UPSTREAM_INVALID_JSON", project_id, upstream_returncode=completed.returncode)
+        payload = json.loads(output.decode("utf-8-sig"))
+    except (UnicodeError, TypeError, ValueError):
+        return _blocked("UPSTREAM_INVALID_JSON", project_id,
+                        upstream_returncode=completed.returncode)
     if not isinstance(payload, dict) or not isinstance(payload.get("status"), str):
         return _blocked("UPSTREAM_INVALID_CONTRACT", project_id)
     if payload.get("status") == "ERROR" or completed.returncode != 0:
+        error_code = payload.get("error_code")
+        if not isinstance(error_code, str) or not re.fullmatch(
+            r"[A-Z][A-Z0-9_]{0,79}", error_code
+        ):
+            error_code = "UNKNOWN"
         return _blocked(
             "UPSTREAM_ERROR", project_id, upstream_returncode=completed.returncode,
-            upstream_error_code=payload.get("error_code", "UNKNOWN"),
+            upstream_error_code=error_code,
         )
     if payload.get("project_id") != project_id:
         return _blocked("UPSTREAM_PROJECT_ID_MISMATCH", project_id)
@@ -111,22 +122,45 @@ def inspect_resume(
     if not all(isinstance(v, dict) for v in (scientific, operations, next_hint)):
         return _blocked("UPSTREAM_INVALID_CONTEXT", project_id)
     declared = scientific.get("active_task_id_declared")
+    if not isinstance(declared, str) or not _PROJECT_ID.fullmatch(declared):
+        declared = None
     unresolved = operations.get("unresolved", [])
-    if not isinstance(unresolved, list):
+    pending = operations.get("pending_scientific_review_count", 0)
+    reconciliation = operations.get("operational_reconciliation_required", False)
+    if (not isinstance(unresolved, list) or len(unresolved) > 6
+            or type(pending) is not int or not 0 <= pending <= 100000
+            or type(reconciliation) is not bool):
         return _blocked("UPSTREAM_INVALID_OPERATIONS", project_id)
+    source_status = payload["status"]
+    if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,79}", source_status):
+        return _blocked("UPSTREAM_INVALID_STATUS", project_id)
+    scientific_resume_status = payload.get("scientific_resume_status")
+    if (not isinstance(scientific_resume_status, str)
+            or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,79}", scientific_resume_status)):
+        scientific_resume_status = None
+    rule_commit = payload.get("rule_commit_local_only")
+    if not isinstance(rule_commit, str) or not re.fullmatch(
+        r"[A-Za-z0-9_.-]{1,80}", rule_commit
+    ):
+        rule_commit = None
+    hint = next_hint.get("action")
+    if hint not in {
+        "RECONCILE_AFFECTED_ORIGINAL_SOURCES",
+        "RECONCILE_UNCERTAIN_PRIOR_OPERATION",
+        "REVIEW_ORIGINAL_SCOPE_THEN_CONTINUE_PERMITTED_DEV",
+    }:
+        hint = None
     return {
         "bridge_status": "SOURCE_REVIEW_ONLY",
         "project_id": project_id,
-        "source_status": payload["status"],
-        "scientific_resume_status": payload.get("scientific_resume_status"),
-        "active_task_id_declared": declared if isinstance(declared, str) else None,
+        "source_status": source_status,
+        "scientific_resume_status": scientific_resume_status,
+        "active_task_id_declared": declared,
         "unresolved_operation_count": len(unresolved),
-        "pending_scientific_review_count": operations.get("pending_scientific_review_count", 0),
-        "operational_reconciliation_required": bool(
-            operations.get("operational_reconciliation_required", False)),
-        "next_action_hint": next_hint.get("action") if isinstance(
-            next_hint.get("action"), str) else None,
-        "rule_commit_local_only": payload.get("rule_commit_local_only"),
+        "pending_scientific_review_count": pending,
+        "operational_reconciliation_required": reconciliation,
+        "next_action_hint": hint,
+        "rule_commit_local_only": rule_commit,
         "authorization_verified": False,
         "project_identity_authenticated": False,
         "execution_authorized": False,
