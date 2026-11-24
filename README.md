@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.9.1 / M3-B conditional Experience screening, feedback candidates and matched advisory evaluation. Actual scientific efficacy, original grants and real-project dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.10.0 / M4-A evidence-bound research route comparison and unknown-aware resource accounting. Actual scientific efficacy, original grants and real-project dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ### M1-C host acceptance (no model calls)
 
@@ -40,6 +40,15 @@ PD-RW-Experience provider, add `--experience-config PATH`,
 Only a next research review/design task retrieves up to three advisory
 lessons; original authority and current task guidance are unchanged.
 See [Experience integration and decision semantics](docs/M3_EXPERIENCE.md).
+
+### M4-A: compare research routes without spending model quota
+
+After an advisory handoff, `pdrw-orch routes --handoff HANDOFF.json`
+prints its decision-context fingerprint. Add `--options OPTIONS.json`
+to compare bounded, evidence-linked operator-declared research options.
+A Pareto frontier preserves tradeoffs rather than choosing a topic or
+granting execution; matching Agent capability is a declared candidate,
+not verified availability or performance. See [M4-A](docs/M4_ROUTE_COMPARISON.md).
 
 ## Mission
 

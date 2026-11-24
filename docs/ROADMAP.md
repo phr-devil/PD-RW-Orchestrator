@@ -81,3 +81,10 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   and descriptive matched quality/cost evaluation with critical regression
   flags. Actual reviewed case library, provider runs and causal efficacy
   assessment remain pending; no automatic learning/permission escalation.
+
+- **v0.10.0 M4-A:** compare evidence-linked declared research options with
+  context identity, prerequisite/scope/budget blockers, Pareto frontier,
+  declared capability candidates and unknown-aware measured-pair accounting.
+  No automated route selection, new author grant or actual performance claim.
+  Next use original time-bounded historical cases and matched provider
+  evaluations on the operator host instead of extrapolating synthetic tests.
