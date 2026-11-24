@@ -16,6 +16,7 @@ from .controller import run_demo
 from .decision import decide_next
 from .instruction import build_bundle
 from .integrations.pdrw import inspect_resume, pdrw_status
+from .integrations.source_checks import inspect_source_chain
 from .planner import demo_plan
 from .policy import load_policy, compile_guidance
 from .models import TaskPacket
@@ -70,8 +71,10 @@ def build_parser() -> argparse.ArgumentParser:
     policy.add_argument("rule_id", nargs="?")
     policy.add_argument("--task-type", default="experiment_design")
     pdrw = commands.add_parser("pdrw", help="Bounded, read-only installed PD-RW-Agent inspection")
-    pdrw.add_argument("action", choices=["inspect"])
+    pdrw.add_argument("action", choices=["inspect", "source-check"])
     pdrw.add_argument("--project-id", required=True)
+    pdrw.add_argument("--operation-id", default=None)
+    pdrw.add_argument("--run-id", default=None)
     pdrw.add_argument("--python", dest="pdrw_python", default=None,
                       help="Operator-selected Python executable where PD-RW-Agent RC is installed")
     schedule = commands.add_parser("schedule", help="Private scheduling intents only; never executes an Agent")
@@ -99,6 +102,8 @@ def build_parser() -> argparse.ArgumentParser:
     advice.add_argument("--with-pdrw", action="store_true",
                         help="Use one read-only PD-RW-Agent resume, never grant permissions")
     advice.add_argument("--python", dest="pdrw_python", default=None)
+    advice.add_argument("--source-operation-id", default=None)
+    advice.add_argument("--source-run-id", default=None)
     advice.add_argument("--save", action="store_true",
                         help="Save handoff.json/md into private PDRW_ORCH_RUNTIME_DIR")
     return parser
@@ -152,7 +157,15 @@ def main(argv: list[str] | None = None) -> int:
                 result = {"rule": matches[0].__dict__,
                           "applies": matches[0].applies(task), "guidance": guidance.to_dict()}
         elif args.command == "pdrw":
-            result = inspect_resume(args.project_id, python_executable=args.pdrw_python)
+            if args.action == "source-check":
+                result = inspect_source_chain(
+                    args.project_id, operation_id=args.operation_id,
+                    run_id=args.run_id, python_executable=args.pdrw_python,
+                )
+            else:
+                if args.operation_id or args.run_id:
+                    raise ValueError("SOURCE_IDS_ONLY_VALID_WITH_SOURCE_CHECK")
+                result = inspect_resume(args.project_id, python_executable=args.pdrw_python)
         elif args.command == "schedule":
             result = _schedule_action(args)
         elif args.command == "codex":
@@ -213,7 +226,38 @@ def main(argv: list[str] | None = None) -> int:
             normalized = normalize_result(original, task)
             all_rules = load_policy(args.policy)
             guidance = compile_guidance(task, all_rules)
-            context = inspect_resume(task.project_id, python_executable=args.pdrw_python) if args.with_pdrw else None
+            if not args.with_pdrw and (args.source_operation_id or args.source_run_id):
+                raise ValueError("SOURCE_IDS_REQUIRE_WITH_PDRW")
+            if args.with_pdrw and (args.source_operation_id or args.source_run_id):
+                original_check = inspect_source_chain(
+                    task.project_id, operation_id=args.source_operation_id,
+                    run_id=args.source_run_id, python_executable=args.pdrw_python,
+                )
+                source_ok = original_check["verification_status"] in (
+                    "SOURCE_READ_ONLY_CHECKS_COMPLETE",
+                    "SOURCE_RECONCILIATION_REQUIRED",
+                )
+                context = {
+                    "bridge_status": "SOURCE_REVIEW_ONLY" if source_ok else "SOURCE_CHECK_UNAVAILABLE",
+                    "project_id": task.project_id,
+                    "source_status": original_check.get("resume_status"),
+                    "unresolved_operation_count": original_check.get("unresolved_operation_count"),
+                    "operational_reconciliation_required": original_check.get(
+                        "operational_reconciliation_required"),
+                    "source_chain_status": original_check["verification_status"],
+                    "source_chain": original_check,
+                    "authorization_verified": False,
+                    "project_identity_authenticated": False,
+                    "scientific_completion_verified": False,
+                }
+                for checked in (original_check.get("operation"), original_check.get("run")):
+                    if checked is not None and checked.get("task_id_declared") != task.task_id:
+                        context["source_chain_status"] = "SOURCE_TASK_IDENTITY_MISMATCH"
+                        break
+            else:
+                context = inspect_resume(
+                    task.project_id, python_executable=args.pdrw_python,
+                ) if args.with_pdrw else None
             decision = decide_next(task, normalized, guidance, load_agents(args.agents), source_context=context)
             next_guidance = compile_guidance(policy_task_for_proposal(decision["next_task"]), all_rules)
             result = build_bundle(task, normalized, decision, guidance,
@@ -230,7 +274,10 @@ def main(argv: list[str] | None = None) -> int:
                 "LOCAL_BYTES_MATCH_NOT_SCIENCE", "LOCAL_RECEIPT_MATCH_NO_OUTPUT",
                 "STRUCTURED_OUTPUT_RECEIVED",
             ) else 3
-        return 0 if result.get("bridge_status") in (None, "SOURCE_REVIEW_ONLY") else 3
+        if args.command == "pdrw" and args.action == "source-check":
+            return 0 if result["verification_status"] == "SOURCE_READ_ONLY_CHECKS_COMPLETE" else 3
+        return 0 if (not isinstance(result, dict) or
+                     result.get("bridge_status") in (None, "SOURCE_REVIEW_ONLY")) else 3
     except (OSError, ValueError, TypeError, sqlite3.Error) as exc:
         print(json.dumps({"status": "ERROR", "reason": str(exc)}, ensure_ascii=False))
         return 2

@@ -30,6 +30,9 @@ def _source_blocker(context: dict | None, project_id: str) -> tuple[str, str] | 
         return ("RECONCILE", "SOURCE_PROJECT_ID_MISMATCH")
     if context.get("bridge_status") != "SOURCE_REVIEW_ONLY":
         return ("RECONCILE", "UPSTREAM_SOURCE_UNAVAILABLE")
+    if (context.get("source_chain_status") is not None
+            and context["source_chain_status"] != "SOURCE_READ_ONLY_CHECKS_COMPLETE"):
+        return ("RECONCILE", "ORIGINAL_SOURCE_CHECK_REQUIRES_RECONCILIATION")
     if (context.get("operational_reconciliation_required") or
         context.get("unresolved_operation_count", 0)):
         return ("RECONCILE", "SOURCE_OPERATION_RECONCILIATION_REQUIRED")
