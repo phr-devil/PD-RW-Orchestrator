@@ -66,3 +66,11 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   processes in place of provider calls. General dispatch, trusted original
   authorization, process-tree isolation, true model/host acceptance and measured
   scientific efficacy remain unverified.
+
+- **v0.9.0 M3-A:** outcome-sensitive independent-review objectives;
+  optional local Experience retrieval for the proposed research task only,
+  with pinned operator reviewer key, explicit visibility cutoff, bounded P4
+  advice and provenance. Real upstream pinned-version synthetic contract
+  test added; no ACE/model invocation, automatic feedback updates or grant
+  escalation. Next evaluate actual reviewed case library and decision
+  usefulness/cost; no repeated mock framework expansion.

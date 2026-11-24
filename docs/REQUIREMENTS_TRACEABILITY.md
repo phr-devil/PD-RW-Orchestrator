@@ -38,3 +38,9 @@ concrete second CLI adapter and task/attempt/parent-result binding. Prior
 Agent free text is not transmitted to the second provider. Original-author
 grant verification is still unavailable, so routine real DEV has no new
 automated dispatch path and no artificial approval requirement is introduced.
+
+M3-A update (v0.9.0): actual Experience CLI contract consumption, conditional
+P4 advice in next-task instructions and outcome-specific review focus are
+implemented. No self-report becomes a scientific verdict; no repeated
+review loop, unverified permission escalation or automatic case distillation
+is introduced. Human decisions and original PD-RW authority are unchanged.

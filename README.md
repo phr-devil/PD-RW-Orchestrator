@@ -1,6 +1,6 @@
 # PD-RW-Orchestrator
 
-**Status: v0.8.0 / M2-A bounded synthetic Codex-to-Claude Code independent-review relay. Real provider/host acceptance, original PD-RW grants and general research dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
+**Status: v0.9.0 / M3-A outcome-sensitive advisory planning and opt-in local Experience retrieval. Actual provider/host acceptance, original PD-RW grants, scientific efficacy and general research dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ### M1-C host acceptance (no model calls)
 
@@ -29,6 +29,17 @@ Inspect the exact preview prompt, including selected Policy text, before
 authorizing a second model. See [M2-A relay acceptance](docs/M2A_RELAY.md).
 The general router is still non-dispatchable for real research; this is a
 specialized fixed-scope pilot and not an authenticated H6 grant.
+
+### M3-A: outcome-sensitive planning with Experience
+
+`advise` now accepts an optional reported scientific outcome
+(POSITIVE, NEGATIVE, MIXED, INCONCLUSIVE or INVALID) to focus independent
+review without certifying science. For a locally installed, host-configured
+PD-RW-Experience provider, add `--experience-config PATH`,
+`--experience-query TERMS` and `--experience-as-of YYYY-MM-DD`.
+Only a next research review/design task retrieves up to three advisory
+lessons; original authority and current task guidance are unchanged.
+See [Experience integration and decision semantics](docs/M3_EXPERIENCE.md).
 
 ## Mission
 
