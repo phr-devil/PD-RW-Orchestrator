@@ -97,7 +97,7 @@ def feedback_candidate(bundle, assessment):
     The selected lesson and proposal are bound to the supplied handoff bytes.
     This does not prove the task actually ran or the reviewer is authentic.
     """
-    _check(assessment, "schema_version project_id task_id rule_id rule_sha256 observed_at science engineering transfer observation evidence_refs")
+    _check(assessment, "schema_version project_id task_id rule_id rule_sha256 observed_at science engineering transfer usage observation evidence_refs")
     if assessment["schema_version"] != "1.0" or bundle.get("mode") != "ADVISORY_DRAFT_ONLY":
         raise ValueError("FEEDBACK_CONTRACT_INVALID")
     proposal = bundle["next_task"]
@@ -122,6 +122,9 @@ def feedback_candidate(bundle, assessment):
     science = assessment["science"]
     engineering = assessment["engineering"]
     transfer = assessment["transfer"]
+    usage = assessment["usage"]
+    if usage not in ("APPLIED", "NOT_APPLIED", "UNKNOWN"):
+        raise ValueError("FEEDBACK_USAGE_INVALID")
     if science not in ("POSITIVE", "NEGATIVE", "MIXED", "INCONCLUSIVE", "INVALID", "UNKNOWN"):
         raise ValueError("FEEDBACK_SCIENCE_INVALID")
     if engineering not in ("COMPLETED", "FAILED", "UNKNOWN") or transfer not in ("HELPFUL", "HARMFUL", "NO_EFFECT", "UNKNOWN"):
@@ -130,7 +133,7 @@ def feedback_candidate(bundle, assessment):
     # Require a separate explicit transfer assessment; unresolved engineering
     # and invalid/unknown science cannot support a directional feedback outcome.
     outcome = "INCONCLUSIVE"
-    if engineering == "COMPLETED" and science not in ("INVALID", "UNKNOWN", "INCONCLUSIVE"):
+    if usage == "APPLIED" and engineering == "COMPLETED" and science not in ("INVALID", "UNKNOWN", "INCONCLUSIVE"):
         outcome = {"HELPFUL": "POSITIVE", "HARMFUL": "NEGATIVE"}.get(transfer, "INCONCLUSIVE")
     lesson_id, marker, version = ident.rpartition(":v")
     if not marker or not lesson_id or not version.isdecimal():
@@ -139,12 +142,13 @@ def feedback_candidate(bundle, assessment):
     observation = _text(assessment["observation"], 1200)
     candidate = {"schema_version": "1.0", "task_id": assessment["task_id"],
         "lesson_id": lesson_id, "observed_at": observed, "outcome": outcome,
-        "observation": f"Unverified assessment of {ident}; science={science}; engineering={engineering}; transfer={transfer}. {observation}",
+        "observation": f"Unverified assessment of {ident}; science={science}; engineering={engineering}; usage={usage}; transfer={transfer}. {observation}",
         "evidence_refs": refs}
     return {"status": "FEEDBACK_CANDIDATE_UNVERIFIED", "feedback": candidate,
         "rule_id": ident, "rule_sha256": assessment["rule_sha256"],
         "handoff_sha256": digest(bundle), "science": science, "engineering": engineering,
-        "transfer": transfer, "negative_transfer_candidate": outcome == "NEGATIVE",
+        "transfer": transfer, "usage_declared": usage, "actual_usage_verified": False,
+        "negative_transfer_candidate": outcome == "NEGATIVE",
         "scientific_validity_verified": False, "automatic_lesson_update": False,
         "automatic_rule_promotion": False, "permission_granted": False}
 
