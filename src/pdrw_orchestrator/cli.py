@@ -6,6 +6,8 @@ import sqlite3
 from pathlib import Path
 
 from .agent_result import normalize_result
+from .specialists import candidates as specialist_candidates
+from .adapters.aide import preview_aide, collect_aide
 from .assets import data_root
 from .adapters.codex import probe_codex
 from .capabilities import accept_codex_pilot_probe
@@ -79,6 +81,14 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--python", dest="pdrw_python")
     agents = commands.add_parser("agents")
     agents.add_argument("action", choices=["list"])
+    specialist = commands.add_parser("specialists", help="Pinned external research project candidates")
+    specialist.add_argument("action", choices=["list", "select"])
+    specialist.add_argument("--capability")
+    aide = commands.add_parser("aide", help="Native AIDE task preview and read-only artifact intake")
+    aide.add_argument("action", choices=["preview", "collect"])
+    aide.add_argument("--plan-file", required=True)
+    aide.add_argument("--attempt-root")
+    aide.add_argument("--run-name")
     policy = commands.add_parser("policy")
     policy.add_argument("action", choices=["check", "explain"])
     policy.add_argument("rule_id", nargs="?")
@@ -219,6 +229,18 @@ def main(argv: list[str] | None = None) -> int:
             result = [{"id": a.id, "capabilities": list(a.capabilities),
                        "configured_ready": a.ready,
                        "verified_ready": a.verified_ready} for a in registry]
+        elif args.command == "specialists":
+            if args.action == "select" and not args.capability:
+                raise ValueError("SPECIALIST_CAPABILITY_REQUIRED")
+            result = specialist_candidates(args.capability)
+        elif args.command == "aide":
+            plan = _bounded_json_file(args.plan_file, "AIDE_PLAN")
+            if args.action == "preview":
+                result = preview_aide(plan)
+            else:
+                if not args.attempt_root or not args.run_name:
+                    raise ValueError("AIDE_ATTEMPT_ROOT_AND_RUN_NAME_REQUIRED")
+                result = collect_aide(plan, args.attempt_root, args.run_name)
         elif args.command == "policy":
             rules = load_policy(args.policy)
             if args.action == "check":

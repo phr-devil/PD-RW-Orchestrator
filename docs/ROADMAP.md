@@ -1,5 +1,24 @@
 # Acceptance-driven roadmap
 
+## Specialist-first development priority (supersedes old ordering)
+
+1. Pin and screen external specialist project candidates; assess license,
+   dependencies, native research function, data/evaluation compatibility and
+   actual costs. Stars are discovery metadata only.
+2. Complete AIDE translation/intake and operator-controlled isolated acceptance
+   using a public synthetic DEV-only task. No model call without explicit
+   authorization; no assumption that an upstream CLI enforces isolation.
+3. Measure the first real algorithm search against a matched general-host
+   baseline; reuse the source-check and evidence interfaces of PD-RW-Agent.
+4. Connect the next complementary specialist only if justified by the first
+   result (RD-Agent or bounded AutoResearchClaw stages). No obligatory chain.
+5. Compare general-host vs specialist vs combined routes, using Experience
+   only as conditional advice. Simplify from measured results.
+   
+The historical milestones below remain intact. Trusted source authorization
+and execution are still release blockers for general real-project dispatch;
+do not duplicate the upstream host or delay independent lawful review work.
+
 - **M0 (complete):** runnable minimal Python CLI, versioned contracts, deterministic policy filtering, mocked two-agent DAG and tests.
 - **M1-A (code and simulated CI complete):** PD-RW-Agent RC CLI read-only `resume` bridge, privacy-preserving source status; no execution permission.
 - **M1-B (code and cross-platform CI complete):** private SQLite scheduling intents, restart-safe unresolved attempts; original science evidence remains authoritative.

@@ -1,5 +1,12 @@
 # Agent instructions (short router only)
 
+**Development priority:** reuse external GitHub research systems' native
+research/algorithm capabilities. Do not build a duplicate scientific decision
+engine, general-host Skill, experience distiller or trusted execution service.
+PD-RW-Agent owns general-host scientific assistance and shared source checks.
+Prioritize one actual specialist adapter and bounded real acceptance over
+further mock-only orchestration work. See docs/SPECIALIST_INTEGRATION.md.
+
 This repository builds an **operational orchestrator**, not a new research workflow.
 
 1. Read README and one relevant docs file. PD-RW [WORKFLOW.md/AGENTS.md] owns scientific policy; original project records own scientific evidence. Do not re-implement them here.

@@ -1,5 +1,14 @@
 # Architecture: orchestrate, do not re-govern
 
+## Current direction
+
+The six original modules below are retained as infrastructure. Their purpose is
+to discover, qualify, adapt and compose existing specialist projects; PD-RW-Agent
+owns general-host scientific assistance and source/evidence checks.
+The v0.1 status paragraph below describes the historical starting point,
+not the current integration status. See [SPECIALIST_INTEGRATION.md](SPECIALIST_INTEGRATION.md)
+for the current specialist boundary.
+
 **Status:** v0.1 runnable dry-run foundation. No live external-agent invocation.
 
 The six orchestration capabilities are `planner`, `router`, `adapters`, `handoff`, `controller`, and `review`. `policy` is an additional cross-cutting guidance system; `registry` and `integrations` are small shared services.

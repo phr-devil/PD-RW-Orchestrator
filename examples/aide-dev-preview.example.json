@@ -1,0 +1,17 @@
+{
+  "schema_version": "aide-dev-preview-v1",
+  "project_id": "PUBLIC-SYNTHETIC",
+  "task_id": "DEV-001",
+  "attempt_id": "attempt-001",
+  "goal": "Compare a simple regression baseline and candidate model on synthetic sensor-like data.",
+  "evaluation": "Use only the predeclared grouped DEV split; compare RMSE on the same independent groups. Do not alter the evaluator.",
+  "protocol_ref": "SYNTHETIC-PROTOCOL-REPLACE-BEFORE-RUN",
+  "data_manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "steps": 3,
+  "step_timeout_seconds": 60,
+  "metric_maximize": false,
+  "code_provider": "openai",
+  "code_model": "REPLACE_MODEL",
+  "feedback_provider": "openai",
+  "feedback_model": "REPLACE_MODEL"
+}

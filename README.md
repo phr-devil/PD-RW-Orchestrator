@@ -1,5 +1,14 @@
 # PD-RW-Orchestrator
 
+## Specialist-project integration (development)
+
+The primary purpose is to **reuse existing specialist research systems**, not
+build a second PD-RW-Agent or recreate their search/experiment algorithms.
+The first bounded integration is AIDE task translation and artifact intake;
+it does not yet launch AIDE. See [specialist integration](docs/SPECIALIST_INTEGRATION.md)
+for the pinned candidate catalog, current capability boundaries and commands.
+
+
 **Status: v0.10.2 / pre-RC integration hardening. Actual upstream contract CI added; operator-host acceptance, original grants, real model runs and general research dispatch remain pending.** Evidence-aware, policy-guided coordination of specialist research agents. **Not an LLM; not yet connected to live ARC/AIDE/R&D-Agent.**
 
 ### M1-C host acceptance (no model calls)
