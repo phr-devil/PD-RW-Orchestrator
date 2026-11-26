@@ -38,11 +38,11 @@ _CATALOG = (
     {"id": "tooluniverse", "repository": "mims-harvard/ToolUniverse",
      "revision": "23168a559128900f743be48f4094e4b99596f672",
      "stars_observed": 1809, "license_declared": "Apache-2.0",
-     "capabilities": ["literature_lookup", "doi_lookup"],
+     "capabilities": ["literature_lookup", "doi_lookup", "dataset_lookup"],
      "integration": "OPT_IN_NATIVE_CROSSREF_CALL_NOT_LIVE_ACCEPTED",
-     "bounded_interface": "public Crossref keyword/DOI metadata only",
+     "bounded_interface": "public Crossref keyword/DOI and Zenodo dataset metadata only",
      "source_paths": ["docs/guide/literature_search_tools_tutorial.rst", "src/tooluniverse/crossref_tool.py",
-                      "src/tooluniverse/base_rest_tool.py", "src/tooluniverse/data/crossref_tools.json"],
+                      "src/tooluniverse/base_rest_tool.py", "src/tooluniverse/data/crossref_tools.json", "src/tooluniverse/zenodo_tool.py", "src/tooluniverse/data/zenodo_tools.json"],
      "limitations": ["Optional pinned install and explicit public network opt-in required.",
                      "No arbitrary tool execution, no LLM, no full text or novelty certification.",
                      "No live acceptance or measured scientific gain."]},
@@ -82,7 +82,7 @@ def recommend(task, *, scope, rules=()):
     chosen, alternatives, reason = None, [], "USE_GENERAL_HOST_SCIENTIFIC_JUDGMENT"
     if scope == "public_topic" and role in ("discovery", "literature"):
         chosen, reason = "arc", "PUBLIC_TOPIC_NATIVE_DISCOVERY_STAGES_1_TO_4"
-    elif scope == "public_topic" and role in ("literature_lookup", "doi_lookup"):
+    elif scope == "public_topic" and role in ("literature_lookup", "doi_lookup", "dataset_lookup"):
         chosen, reason = "tooluniverse", "NARROW_METADATA_QUERY_WITHOUT_LLM"
     elif scope in ("public_synthetic", "staged_dev") and role in ("code_experiment", "optimization"):
         chosen, reason = "aide", "FIXED_METRIC_NATIVE_SEARCH"

@@ -32,6 +32,8 @@ _OTHER_BLOBS = {
         "tooluniverse/base_rest_tool.py": "cbbe567098a88df61d9daf098b506663ab82d114",
         "tooluniverse/base_tool.py": "d3f214df5b924fc24510464544d8caad362e1d51",
         "tooluniverse/data/crossref_tools.json": "60ebf250c806eb5ad247fc583d18b3e1e8d2307d",
+        "tooluniverse/zenodo_tool.py": "592ffd3cdab41407f8e59b84d680e1ab6cd0df82",
+        "tooluniverse/data/zenodo_tools.json": "066257ca8e58674ffe382dd11f15ec6a31815411",
     },
     "arc": {
         "researchclaw/cli.py": "4c272dd8ae24b2f7cf579c9d057d9af25d689cc2",

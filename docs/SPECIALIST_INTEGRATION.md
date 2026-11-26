@@ -397,6 +397,30 @@ equality into a trusted Run. AIDE/RD scored replay intake includes the scored
 prediction's digest bound to the observed artifact list. No candidate
 execution or live cross-provider relay is implied by offline tests.
 
+## Public dataset discovery (Zenodo via ToolUniverse)
+
+The same ToolUniverse adapter now supports a narrow dataset lookup, directly
+reusing the pinned ZenodoRESTTool and upstream config. Use the TaskPacket
+capability dataset_lookup with public_topic scope, or pass this native plan:
+
+~~~json
+{"schema_version":"tooluniverse-public-dataset-v1","project_id":"PUBLIC-EXAMPLE","task_id":"DATA-001","attempt_id":"zenodo-001","operation":"dataset","public_text":"wearable inertial sensor human activity","limit":10}
+~~~
+
+The existing preview/query/collect commands are unchanged. Explicit public
+network opt-in covers Zenodo only when the operator has approved that endpoint
+and query; no dataset file is downloaded. The native query is restricted to
+dataset metadata, results are screened for the declared dataset resource
+type and deduplicated by record ID. The output datasets.json retains DOI,
+title, version, publication date, access and license declarations, not the
+files, labels or contents. A returned record, open-access declaration or
+license ID is not proof of eligibility, data usability, or H4. Inspect
+actual license terms, data schema, participants/groups, labels, ground truth,
+condition coverage, closest prior work and achievable independent evaluation
+before selecting data or requesting any download. Search totals are not
+evidence of completeness. Unit tests use synthetic responses; no live
+provider lookup or download was executed in this change.
+
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with

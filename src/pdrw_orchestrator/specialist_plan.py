@@ -91,9 +91,11 @@ def compile_plan(task, scope, options, *, rules=(), prior=None, prior_root=None,
     else:
         if scope != "public_topic" or task.task_type != "discovery":
             raise ValueError("SPECIALIST_TOOLUNIVERSE_TASK_TYPE_OR_SCOPE_MISMATCH")
-        expected = "doi" if task.capability == "doi_lookup" else "search"
+        expected = {"doi_lookup": "doi", "dataset_lookup": "dataset"}.get(task.capability, "search")
         if plan["operation"] != expected:
             raise ValueError("SPECIALIST_TOOLUNIVERSE_CAPABILITY_MISMATCH")
+        if expected == "dataset":
+            plan["schema_version"] = "tooluniverse-public-dataset-v1"
         checked = tooluniverse.preview(plan, rules)
         if checked["blocked_by_policy"]:
             raise ValueError("SPECIALIST_NATIVE_POLICY_DENIED")

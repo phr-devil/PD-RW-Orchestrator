@@ -164,7 +164,7 @@ def collect(provider, root, *, plan=None, run_name=None, score_replay=False):
             "delta_candidate_minus_linear", "group_scores")}
     # Bind the scored replay prediction bytes to the observed artifact set.
     if score_replay:
-        prediction_ref = "review/submission.csv" if provider == "aide" else "review/candidate/submission.csv"
+        prediction_ref = "review/submission.csv"
         existing = next((a for a in artifacts if a["ref"] == prediction_ref), None)
         if existing is None:
             raw_prediction = aide_pilot._read(root / prediction_ref, aide_pilot._MAX_PRED_BYTES)
@@ -261,8 +261,14 @@ def review_metadata(value):
             if (type(count) is not int or type(returned) is not int or not 0 <= count <= returned <= 20
                     or (total is not None and (type(total) is not int or total < returned))):
                 raise ValueError("SPECIALIST_TOOLUNIVERSE_SUMMARY_INVALID")
+            kind = summary.get("record_kind", "literature")
+            if kind not in ("literature", "dataset"):
+                raise ValueError("SPECIALIST_TOOLUNIVERSE_KIND_INVALID")
             safe_summary = {"candidate_count": count, "returned_count": returned,
                             "total_count_reported": total, "literature_verified": False}
+            if kind == "dataset":
+                safe_summary.update({"record_kind": "dataset", "dataset_scope_verified": False,
+                                     "license_verified": False, "suitability_verified": False})
         else:
             numeric = ("candidate_rmse", "linear_baseline_rmse", "mean_baseline_rmse",
                        "delta_candidate_minus_linear")
