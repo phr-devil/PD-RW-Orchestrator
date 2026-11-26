@@ -12,7 +12,7 @@ from . import aide_pilot, aide_dev
 from .adapters.aide_install import inspect_aide_install
 from .adapters.arc import preview_arc, collect_arc
 from .adapters import rdagent, tooluniverse
-from . import specialist_host
+from . import specialist_host, specialist_plan
 from .assets import data_root
 from .adapters.codex import probe_codex
 from .capabilities import accept_codex_pilot_probe
@@ -87,9 +87,14 @@ def build_parser() -> argparse.ArgumentParser:
     agents = commands.add_parser("agents")
     agents.add_argument("action", choices=["list"])
     specialist = commands.add_parser("specialists", help="Pinned external research project candidates")
-    specialist.add_argument("action", choices=["list", "select", "recommend"])
+    specialist.add_argument("action", choices=["list", "select", "recommend", "compile"])
     specialist.add_argument("--capability")
     specialist.add_argument("--task-file")
+    specialist.add_argument("--options-file")
+    specialist.add_argument("--prior-intake")
+    specialist.add_argument("--prior-root")
+    specialist.add_argument("--review-ref")
+    specialist.add_argument("--out-plan")
     specialist.add_argument("--scope", choices=["public_topic", "public_synthetic", "staged_dev", "original_local"])
     aide = commands.add_parser("aide", help="Native AIDE task preview and read-only artifact intake")
     aide.add_argument("action", choices=["preview", "collect"])
@@ -198,6 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     advice.add_argument("--task-file")
     advice.add_argument("--result-file")
     advice.add_argument("--intake-file", help="Unified specialist intake instead of separate task/result files")
+    advice.add_argument("--intake-root", help="Optional immutable local attempt root for exact artifact byte comparison")
     advice.add_argument("--with-pdrw", action="store_true",
                         help="Use one read-only PD-RW-Agent resume, never grant permissions")
     advice.add_argument("--python", dest="pdrw_python", default=None)
@@ -283,7 +289,20 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "specialists":
             if args.action == "select" and not args.capability:
                 raise ValueError("SPECIALIST_CAPABILITY_REQUIRED")
-            if args.action == "recommend":
+            compile_options = (args.options_file, args.prior_intake, args.prior_root, args.review_ref, args.out_plan)
+            if args.action != "compile" and any(compile_options):
+                raise ValueError("SPECIALIST_COMPILE_OPTIONS_ONLY")
+            if args.action == "compile":
+                if not args.task_file or not args.scope or not args.options_file or args.capability:
+                    raise ValueError("SPECIALIST_COMPILE_TASK_SCOPE_OPTIONS_REQUIRED")
+                result = specialist_plan.compile_plan(
+                    TaskPacket(**_bounded_json_file(args.task_file, "TASK")), args.scope,
+                    _bounded_json_file(args.options_file, "NATIVE_OPTIONS"), rules=load_policy(args.policy),
+                    prior=_bounded_json_file(args.prior_intake, "PRIOR_INTAKE") if args.prior_intake else None,
+                    prior_root=args.prior_root, review_ref=args.review_ref)
+                if args.out_plan:
+                    result["native_plan_file"] = specialist_plan.export_plan(result, args.out_plan)
+            elif args.action == "recommend":
                 if not args.task_file or not args.scope or args.capability:
                     raise ValueError("SPECIALIST_RECOMMEND_TASK_AND_SCOPE_REQUIRED")
                 result = recommend_specialist(TaskPacket(**_bounded_json_file(args.task_file, "TASK")), scope=args.scope, rules=load_policy(args.policy))
@@ -519,12 +538,17 @@ def main(argv: list[str] | None = None) -> int:
                 result = evaluate_pairs(assessment)
         elif args.command == "advise":
             intake_metadata = None
+            if args.intake_root and not args.intake_file:
+                raise ValueError("INTAKE_ROOT_REQUIRES_INTAKE_FILE")
             if args.intake_file:
                 if args.task_file or args.result_file:
                     raise ValueError("INTAKE_OR_TASK_RESULT_NOT_BOTH")
                 intake = _bounded_json_file(args.intake_file, "SPECIALIST_INTAKE")
                 task, original = specialist_host.unpack_intake(intake)
                 intake_metadata = specialist_host.review_metadata(intake)
+                if args.intake_root:
+                    intake_metadata["local_byte_comparison"] = specialist_host.verify_artifacts(intake, args.intake_root)
+                    intake_metadata["artifact_bytes_reverified_by_advise"] = True
             else:
                 if not args.task_file or not args.result_file:
                     raise ValueError("TASK_AND_RESULT_OR_INTAKE_REQUIRED")
@@ -597,7 +621,7 @@ def main(argv: list[str] | None = None) -> int:
             if intake_metadata is not None:
                 result["specialist_intake"] = intake_metadata
                 result["chatgpt_handoff_md"] += (
-                    "\n## Specialist intake (reported byte hashes and optional scores; not reverified)\n"
+                    "\n## Specialist intake (untrusted observations; see local byte comparison status)\n"
                     + json.dumps(intake_metadata, ensure_ascii=False) + "\n")
             if retrieval is not None:
                 retrieval["selected_experience_rule_ids"] = [

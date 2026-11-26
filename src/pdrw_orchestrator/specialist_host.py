@@ -162,6 +162,17 @@ def collect(provider, root, *, plan=None, run_name=None, score_replay=False):
             "prediction_sha256", "rows", "independent_group_count", "metric",
             "candidate_rmse", "linear_baseline_rmse", "mean_baseline_rmse",
             "delta_candidate_minus_linear", "group_scores")}
+    # Bind the scored replay prediction bytes to the observed artifact set.
+    if score_replay:
+        prediction_ref = "review/submission.csv" if provider == "aide" else "review/candidate/submission.csv"
+        existing = next((a for a in artifacts if a["ref"] == prediction_ref), None)
+        if existing is None:
+            raw_prediction = aide_pilot._read(root / prediction_ref, aide_pilot._MAX_PRED_BYTES)
+            existing = {"ref": prediction_ref, "sha256": hashlib.sha256(raw_prediction).hexdigest(), "bytes": len(raw_prediction)}
+            artifacts.append(existing)
+            raw["deliverables"]["evidence_refs"].append(prediction_ref)
+        if existing["sha256"] != provider_summary["prediction_sha256"]:
+            raise ValueError("SPECIALIST_REPLAY_PREDICTION_DIGEST_MISMATCH")
     # These are adapter byte observations, not trusted process or Run receipts.
     normalize_result(raw, task)
     return {"schema_version": "specialist-intake-v1", "provider": provider,
@@ -272,3 +283,40 @@ def review_metadata(value):
             "artifacts": observation["artifacts"], "provider_summary": safe_summary,
             "artifact_bytes_reverified_by_advise": False, "authorization_verified": False,
             "scientific_validity_verified": False}
+
+
+def verify_artifacts(value, root):
+    """Rehash exact observed files in a selected immutable attempt root.
+
+    The caller must ensure the root is an approved isolated snapshot; byte
+    equality cannot establish native process, scientific truth or authorization.
+    """
+    unpack_intake(value)
+    review_metadata(value)
+    root = aide_pilot._check_root(root, exists=True)
+    items = value["artifact_observation"]["artifacts"]
+    if sum(item["bytes"] for item in items) > 128 * 1024 * 1024:
+        raise ValueError("SPECIALIST_ARTIFACT_TOTAL_CAP_EXCEEDED")
+    for item in items:
+        path = root / item["ref"]
+        for parent in reversed(tuple(p for p in path.parents if p != root and root in p.parents)):
+            _plain(parent, directory=True)
+        _plain(path, directory=False)
+        stat = path.stat()
+        if stat.st_nlink != 1 or stat.st_size != item["bytes"]:
+            raise ValueError("SPECIALIST_ARTIFACT_SIZE_OR_LINK_MISMATCH")
+        h = hashlib.sha256()
+        remaining = item["bytes"]
+        with path.open("rb") as stream:
+            while remaining:
+                chunk = stream.read(min(remaining, 1024 * 1024))
+                if not chunk:
+                    raise ValueError("SPECIALIST_ARTIFACT_BYTES_MISMATCH")
+                h.update(chunk)
+                remaining -= len(chunk)
+            if stream.read(1) or h.hexdigest() != item["sha256"]:
+                raise ValueError("SPECIALIST_ARTIFACT_BYTES_MISMATCH")
+    return {"status": "INTAKE_ARTIFACT_BYTES_MATCH_ONLY", "artifact_count": len(items),
+            "total_bytes": sum(x["bytes"] for x in items), "artifact_bytes_reverified": True,
+            "scientific_validity_verified": False, "process_completion_verified": False,
+            "authorization_verified": False}

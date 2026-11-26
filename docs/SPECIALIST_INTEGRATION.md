@@ -349,6 +349,54 @@ request root rather than automatically retry. This is metadata discovery,
 not literature completeness, relevance or novelty verification.
 No live installation or network execution is claimed by unit tests.
 
+## Compile an actual next task, without hand-rewriting provider plans
+
+Use existing TaskPacket and a small explicit provider-options file. The
+compiler delegates to the existing task-fit route and native validation;
+private objectives, evidence contents and author grants are not copied into
+the provider request. It accepts ARC public discovery, ToolUniverse public
+lookup and AIDE operator-staged DEV. Fixed AIDE/RD engineering pilots remain
+owned by their existing fixture constructors. Unsupported tasks return the
+general-host route or an explicit block.
+
+~~~powershell
+pdrw-orch specialists compile --task-file examples/specialist-compile-task.example.json --scope public_topic --options-file examples/specialist-compile-options.example.json --out-plan ABSOLUTE_NEW_PLAN.json
+~~~
+
+The optional output is the native plan JSON, not the compilation envelope;
+feed it directly to the existing provider-specific commands. It is created
+exclusively at the selected absolute path, never overwritten. For ARC the
+options are attempt_id, public_topic, research_scope, max_papers, config_sha256.
+For AIDE they are the existing plan fields excluding schema_version,
+project_id and task_id; protocol_ref must be in the new TaskPacket. For
+ToolUniverse the options are attempt_id, operation, public_text, limit.
+Choose the next task's scope and explicit provider-facing text locally.
+Task-specific guidance and budget remain review inputs; no automatic
+execution or inherited permission.
+
+For cross-provider relay, after the prior result has been independently
+assessed in the original workflow, provide its intake, immutable attempt
+root and a review reference included in the new TaskPacket.evidence_refs:
+
+~~~powershell
+pdrw-orch specialists compile --task-file NEXT_TASK.json --scope staged_dev --options-file AIDE_OPTIONS.json --prior-intake PREVIOUS_INTAKE.json --prior-root ABSOLUTE_PREVIOUS_ROOT --review-ref ORIGINAL_REVIEW_REF --out-plan ABSOLUTE_NEW_PLAN.json
+~~~
+
+The task must have a distinct ID in the same project. The compiler compares
+exact previously observed artifact bytes; it does not authenticate the
+review reference, prior execution, scientific outcome or H3/H4/H6. No
+unverified literature or prior score selects a scientific question or changes
+an author decision automatically. Use PD-RW-Agent/ChatGPT for the original
+independent assessment and task choice; no extra review is needed merely
+because a different provider will be used.
+
+The existing advise interface also accepts --intake-root ABSOLUTE_ROOT to
+compare exact observed artifact bytes and retain that observation in its
+handoff. It still requires original evidence review and does not turn byte
+equality into a trusted Run. AIDE/RD scored replay intake includes the scored
+prediction's digest bound to the observed artifact list. No candidate
+execution or live cross-provider relay is implied by offline tests.
+
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with

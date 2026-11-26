@@ -2,6 +2,8 @@
 
 ## Specialist-first development priority (supersedes old ordering)
 
+Native task compilation and explicit prior-intake relay now reuse existing adapters. The next acceptance is real operator-host execution and scientific review, not additional offline orchestration layers.
+
 Task-fit recommendations and operator-staged AIDE DEV snapshot verification now extend the shared host interface beyond the fixed engineering pilot. Actual original authorization and live host acceptance remain external.
 
 The three bounded native adapters and shared existing-host handoff/intake are now implemented. Next: operator-host execution under original authorization, then real scientific task selection and evidence-linked relay. Freeze additional generic infrastructure unless an observed task blocker requires it.

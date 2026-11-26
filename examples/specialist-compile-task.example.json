@@ -1,0 +1,11 @@
+{
+  "task_id": "DISCOVERY-001",
+  "project_id": "PUBLIC-EXAMPLE",
+  "task_type": "discovery",
+  "capability": "literature_lookup",
+  "objective": "Find public work on group-independent sensor regression",
+  "budget": {
+    "max_attempts": 1,
+    "max_model_calls": 0
+  }
+}

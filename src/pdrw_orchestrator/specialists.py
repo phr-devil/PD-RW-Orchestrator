@@ -90,6 +90,12 @@ def recommend(task, *, scope, rules=()):
             alternatives = ["rdagent"]
     elif scope == "public_synthetic" and role == "experiment_design":
         chosen, reason = "rdagent", "BOUNDED_SYNTHETIC_RD_ITERATION_ONLY"
+    if chosen in ("arc", "tooluniverse") and task.task_type != "discovery":
+        chosen, alternatives, reason = None, [], "NATIVE_TASK_TYPE_MISMATCH"
+    if chosen == "aide" and task.task_type != "code_experiment":
+        chosen, alternatives, reason = None, [], "NATIVE_TASK_TYPE_MISMATCH"
+    if chosen == "rdagent" and task.task_type != "experiment_design":
+        chosen, alternatives, reason = None, [], "NATIVE_TASK_TYPE_MISMATCH"
     # Scope/role alone cannot establish scientific adequacy or permissions.
     effects = list(task.required_effects)
     if chosen:

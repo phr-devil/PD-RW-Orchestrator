@@ -203,3 +203,5 @@ Existing PD-RW-Agent reference: [RC 1.0 architecture](https://github.com/phr-dev
 Agent backends are capability slots, not automatically installed or authorized. ARC/AIDE/R&D-Agent remain unavailable until real CLI/API handshake and bounded task acceptance pass. This repository does not vendor their implementations.
 
 Never commit a private case library, manuscript, original Run, credentials or local machine data into this public repository.
+
+The `specialists compile` command converts an explicit next TaskPacket and provider options into an existing native plan. It supports prior artifact byte comparison and a declared independent review reference without transferring grants. See [specialist integration](docs/SPECIALIST_INTEGRATION.md).
