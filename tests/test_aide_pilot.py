@@ -30,6 +30,7 @@ def test_fixed_inputs_group_split_and_no_test_labels(tmp_path):
     root = tmp_path.resolve() / "pilot"
     first = make(root)
     assert first == verify(root)
+    assert first["environment_preview"] == {"PYTHONUTF8": "1"}
     assert not first["execution_authorized"]
     assert first["model_calls_requested"] == 0
     splits = [rows(root / "worker" / "data" / name) for name in ("train.csv", "validation.csv", "test.csv")]

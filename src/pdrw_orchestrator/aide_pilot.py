@@ -158,7 +158,8 @@ def verify(root):
     return {"status": "PUBLIC_SYNTHETIC_INPUTS_MATCHED_ONLY", "plan": plan,
             "plan_sha256": preview["plan_sha256"], "manifest": _manifest(),
             "worker_cwd_ref": "worker", "review_ref": "review",
-            "argv_preview": preview["argv_preview"], "required_host_checks": preview["required_host_checks"],
+            "argv_preview": preview["argv_preview"], "environment_preview": preview["environment_preview"],
+            "required_host_checks": preview["required_host_checks"],
             "execution_authorized": False, "execute_performed": False,
             "model_calls_requested": 0, "host_isolation_verified": False,
             "scientific_validity_verified": False}
