@@ -213,6 +213,64 @@ is inferred. Review source/metrics independently, report actual budgets
 and compare against matched general-host/AIDE arms. This is a public
 engineering fixture, not a scientific or confidential benchmark.
 
+## Existing-host handoff (use this path for operator acceptance)
+
+After the provider-specific preparation above, use one common interface to
+avoid manually reconstructing task/result JSON. Supply the actual source or
+site-packages parent for the separately installed pinned provider.
+
+~~~powershell
+pdrw-orch specialist-host prepare --provider aide --root ABSOLUTE_PILOT_ROOT --source-root ABSOLUTE_SOURCE_PARENT
+pdrw-orch specialist-host prepare --provider rdagent --root ABSOLUTE_RD_ROOT --source-root ABSOLUTE_SOURCE_PARENT
+pdrw-orch specialist-host prepare --provider arc --root ABSOLUTE_ARC_WORKER --source-root ABSOLUTE_SOURCE_PARENT --plan-file ARC_PLAN.json
+~~~
+
+The RD-Agent worker must contain the approved .env with the declared digest;
+ARC uses config.arc.yaml at its worker root with the approved digest. Only
+hash equality is checked; it is not validation of settings, permissions,
+or environment precedence. Keep these files and packet outputs private.
+The AIDE/RD/ARC source observations compare selected Git blob bytes from
+their pinned upstream revisions; no import or full install attestation.
+A nonzero exit from prepare indicates a concrete preparation blocker.
+A zero exit still means HOST_REVIEW_REQUIRED, not permission to execute.
+
+In WorkBuddy/Codex or another trusted local host, read the packet once,
+verify effective config, original scope, isolation and total resources.
+Review applicable guidance without altering frozen scientific inputs.
+Only when the actual host is authorized and contained, invoke the returned
+native argv in the specified cwd with reviewed environment overrides.
+Use existing host controls, not a new Orchestrator subprocess service.
+Preserve exit status, code, logs, actual usage and any unresolved execution.
+Do not retry an uncertain attempt. No general real-project DEV dispatch
+is enabled by this interface; AIDE and RD use the fixed public pilot only.
+
+After an actual attempt and reviewed export, collect into a private JSON file
+(outside the provider worker). Example PowerShell (UTF-8 output):
+
+~~~powershell
+pdrw-orch specialist-host collect --provider aide --root ABSOLUTE_PILOT_ROOT --run-name 0-attempt-001 | Set-Content -Encoding utf8 INTAKE.json
+pdrw-orch advise --intake-file INTAKE.json
+~~~
+
+RD uses --provider rdagent and its prepared root; ARC uses --provider arc,
+its worker root and --plan-file ARC_PLAN.json, with output under run/.
+No run-name is needed for those providers. The unified intake maps existing
+native outputs to the existing TaskPacket and v2 agent result, with refs
+relative to the operator-selected attempt root. The envelope is untrusted:
+advise normalizes only the task and agent self-report, not artifact metadata,
+and does not independently re-open sources. Use existing --with-pdrw and
+Experience options when relevant and actually available. For synthetic
+pilots do not invent original project Run IDs. For ARC, independently verify
+literature and prepare H3 options; no automatic author choice. If the provider
+fails or outputs are missing, use existing manual result status/advise path
+with the actual failure or uncertainty; never fabricate a successful intake.
+
+## Additional specialist search (2026-11-26)
+
+See [SPECIALIST_CANDIDATES.md](SPECIALIST_CANDIDATES.md) for a source-pinned
+screen of five complementary or overlapping systems. Do not install all;
+prioritize actual native use and targeted, missing research capability.
+
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with

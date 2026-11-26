@@ -6,7 +6,7 @@ The primary purpose is to **reuse existing specialist research systems**, not
 build a second PD-RW-Agent or recreate their search/experiment algorithms.
 AIDE and RD-Agent have bounded native task preparation/intake on a shared
 public grouped synthetic pilot; ARC has limited discovery preview/intake.
-The independent scorer runs without a model call. No specialist is launched automatically. See [specialist integration](docs/SPECIALIST_INTEGRATION.md)
+The independent scorer runs without a model call. The shared `specialist-host` handoff supports all three native interfaces and unified `advise --intake-file` intake. No specialist is launched automatically. See [specialist integration](docs/SPECIALIST_INTEGRATION.md)
 for the pinned candidate catalog, current capability boundaries and commands.
 
 

@@ -2,6 +2,8 @@
 
 ## Specialist-first development priority (supersedes old ordering)
 
+The three bounded native adapters and shared existing-host handoff/intake are now implemented. Next: operator-host execution under original authorization, then real scientific task selection and evidence-linked relay. Freeze additional generic infrastructure unless an observed task blocker requires it.
+
 1. Pin and screen external specialist project candidates; assess license,
    dependencies, native research function, data/evaluation compatibility and
    actual costs. Stars are discovery metadata only.

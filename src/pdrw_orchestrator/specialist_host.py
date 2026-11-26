@@ -1,0 +1,171 @@
+"""Native specialist -> existing authorized host -> existing advise interface.
+
+No subprocess, model call, new grant, scheduler, or scientific decision engine.
+The host must establish permissions and effective containment outside this code.
+"""
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+from pathlib import Path
+
+from . import aide_pilot
+from .adapters import rdagent
+from .adapters.aide import collect_aide, _plain, preview_aide
+from .adapters.aide_install import inspect_specialist_install
+from .adapters.arc import collect_arc, preview_arc
+from .agent_result import normalize_result
+from .models import TaskPacket
+from .policy import compile_guidance
+from .specialists import candidates
+
+_PROVIDERS = ("aide", "rdagent", "arc")
+_ARTIFACT_FIELDS = ("code_refs", "run_refs", "report_refs", "evidence_refs")
+
+
+def _context(provider, root, plan=None):
+    if provider not in _PROVIDERS:
+        raise ValueError("UNKNOWN_SPECIALIST_PROVIDER")
+    root = aide_pilot._check_root(root, exists=True)
+    if provider == "arc":
+        if plan is None:
+            raise ValueError("ARC_PLAN_REQUIRED")
+        native = preview_arc(plan)
+        task = TaskPacket(project_id=plan["project_id"], task_id=plan["task_id"],
+                          task_type="discovery", capability="literature",
+                          objective=plan["public_topic"] + "\n" + plan["research_scope"],
+                          required_effects=("external_model", "network"))
+        cwd = root
+    else:
+        if plan is not None:
+            raise ValueError("PILOT_PLAN_IS_ALREADY_PREPARED")
+        native = aide_pilot.verify(root) if provider == "aide" else rdagent.verify(root)
+        plan = native["plan"]
+        task = TaskPacket(project_id=plan["project_id"], task_id=plan["task_id"],
+                          task_type="code_experiment", capability="code_experiment",
+                          objective="Fixed public synthetic grouped sensor regression; candidate code and independent RMSE.",
+                          protocol_refs=(plan.get("protocol_ref", "AIDE-SYNTHETIC-GROUP-RMSE-V1"),),
+                          required_effects=("external_model", "network", "training"))
+        cwd = root / "worker"
+    return root, cwd, plan, native, task
+
+
+def _config_observation(path, declared):
+    # Only exact, operator-selected config files. Never print raw contents or
+    # the actual digest of a mismatched file, which could contain credentials.
+    try:
+        raw = aide_pilot._read(path, 128 * 1024)
+    except (OSError, ValueError):
+        return "MISSING_OR_UNSAFE"
+    return "DECLARED_BYTES_MATCH" if hashlib.sha256(raw).hexdigest() == declared else "DECLARED_BYTES_MISMATCH"
+
+
+def prepare(provider, root, *, plan=None, source_root=None, rules=()):
+    root, cwd, plan, native, task = _context(provider, root, plan)
+    guidance = compile_guidance(task, rules)
+    blockers = []
+    source = None
+    if source_root is None:
+        blockers.append("SELECTED_SOURCE_NOT_CHECKED")
+    else:
+        source = inspect_specialist_install(provider, source_root)
+        if source["status"] != "PINNED_SELECTED_BYTES_MATCH":
+            blockers.append("PINNED_SELECTED_SOURCE_NOT_MATCHED")
+    config = "NOT_APPLICABLE_TO_AIDE_CLI_PLAN"
+    if provider == "arc":
+        config = _config_observation(cwd / "config.arc.yaml", plan["config_sha256"])
+        if (cwd / "run").exists() or (cwd / "run").is_symlink():
+            blockers.append("OUTPUT_ALREADY_EXISTS_RECONCILE")
+    elif provider == "rdagent":
+        # Native app/cli.py loads .env in cwd before initializing settings.
+        # Environment precedence can still override file values.
+        config = _config_observation(cwd / ".env", plan["provider_config_sha256_declared"])
+        if {p.name for p in cwd.iterdir()} - {"ds_data", ".env"}:
+            blockers.append("WORKER_NOT_FRESH_RECONCILE")
+    else:
+        if {p.name for p in cwd.iterdir()} - {"data", "task.md"}:
+            blockers.append("WORKER_NOT_FRESH_RECONCILE")
+    if config in ("MISSING_OR_UNSAFE", "DECLARED_BYTES_MISMATCH"):
+        blockers.append("PROVIDER_CONFIG_NOT_MATCHED")
+    if guidance.denied_effects:
+        blockers.append("LOCAL_POLICY_EFFECT_DENIED")
+    candidate = next(row for row in candidates()["candidates"] if row["id"] == provider)
+    return {
+        "schema_version": "specialist-host-handoff-v1",
+        "status": "HOST_PREPARATION_BLOCKED" if blockers else "HOST_REVIEW_REQUIRED",
+        "provider": provider, "upstream_revision": candidate["revision"],
+        "task": task.to_dict(), "attempt_id": plan["attempt_id"],
+        "plan_sha256": native["plan_sha256"],
+        "local_cwd": str(cwd), "argv": native["argv_preview"],
+        "environment_overrides": native.get("environment_preview", {}),
+        "source_observation": source, "config_observation": config,
+        "guidance": guidance.to_dict(), "blockers": blockers,
+        "required_host_checks": native["required_host_checks"],
+        "host_instruction": [
+            "Read this local packet once; do not pass it wholesale to the model or external provider.",
+            "Resolve listed blockers. Authenticate existing original scope or obtain only genuinely new grants; no hash or packet grants permission.",
+            "Check pinned executable/interpreter/dependencies, effective config, allowed data and approved model/network/compute budgets in the existing trusted host.",
+            "Review required guidance and resolve conflicts with the native task before launch; do not silently alter frozen evaluation or task bytes.",
+            "If authorized and contained, invoke the native argv directly from local_cwd using the selected environment. Do not execute a shell string or retry an uncertain job.",
+            "Record actual exit/attempt/usage and native outputs. Use specialist-host collect, then advise --intake-file; independently review before any scientific claim or downstream task."
+        ],
+        "execution_authorized": False, "execute_performed": False,
+        "host_isolation_verified": False, "effective_config_verified": False,
+        "model_calls_requested": 0,
+    }
+
+
+def collect(provider, root, *, plan=None, run_name=None):
+    root, cwd, plan, native, task = _context(provider, root, plan)
+    if provider == "aide":
+        if not run_name:
+            raise ValueError("AIDE_RUN_NAME_REQUIRED")
+        observed = collect_aide(plan, cwd, run_name)
+        prefix = "worker/"
+    elif provider == "rdagent":
+        if run_name is not None:
+            raise ValueError("RUN_NAME_ONLY_FOR_AIDE")
+        observed = rdagent.collect(root)
+        prefix = ""
+    else:
+        if run_name is not None:
+            raise ValueError("RUN_NAME_ONLY_FOR_AIDE")
+        observed = collect_arc(plan, root / "run")
+        prefix = "run/"
+    if observed["plan_sha256_declared"] != native["plan_sha256"]:
+        raise ValueError("SPECIALIST_PLAN_DIGEST_MISMATCH")
+    raw = copy.deepcopy(observed["agent_result"])
+    for name in _ARTIFACT_FIELDS:
+        raw["deliverables"][name] = [prefix + ref for ref in raw["deliverables"][name]]
+    artifacts = [{**a, "ref": prefix + a["ref"]} for a in observed["artifacts"]]
+    # These are adapter byte observations, not trusted process or Run receipts.
+    normalize_result(raw, task)
+    return {"schema_version": "specialist-intake-v1", "provider": provider,
+            "task": task.to_dict(), "agent_result": raw,
+            "plan_sha256_declared": native["plan_sha256"],
+            "artifact_observation": {"status": observed["status"], "artifacts": artifacts,
+                "artifact_ref_base": "OPERATOR_SELECTED_ISOLATED_ATTEMPT_ROOT",
+                "process_completion_verified": False, "plan_binding_verified": False,
+                "scientific_validity_verified": False},
+            "execution_authorized": False}
+
+
+def unpack_intake(value):
+    """Only consume task and self-report. All observation metadata stays untrusted."""
+    if not isinstance(value, dict) or value.get("schema_version") != "specialist-intake-v1":
+        raise ValueError("SPECIALIST_INTAKE_SCHEMA_INVALID")
+    if set(value) != {"schema_version", "provider", "task", "agent_result",
+                      "plan_sha256_declared", "artifact_observation", "execution_authorized"}:
+        raise ValueError("SPECIALIST_INTAKE_FIELDS_INVALID")
+    provider = value["provider"]
+    if provider not in _PROVIDERS or value["execution_authorized"] is not False:
+        raise ValueError("SPECIALIST_INTAKE_PROVIDER_OR_AUTH_INVALID")
+    task = TaskPacket(**value["task"])
+    raw = value["agent_result"]
+    if (not isinstance(raw, dict) or raw.get("schema_version") != "2.0"
+            or raw.get("agent_id") != provider
+            or raw.get("execution", {}).get("status") != "NEEDS_REVIEW"):
+        raise ValueError("SPECIALIST_INTAKE_RESULT_INVALID")
+    normalize_result(raw, task)
+    return task, raw

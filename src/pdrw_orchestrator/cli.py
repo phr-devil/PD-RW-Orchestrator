@@ -12,6 +12,7 @@ from . import aide_pilot
 from .adapters.aide_install import inspect_aide_install
 from .adapters.arc import preview_arc, collect_arc
 from .adapters import rdagent
+from . import specialist_host
 from .assets import data_root
 from .adapters.codex import probe_codex
 from .capabilities import accept_codex_pilot_probe
@@ -117,6 +118,13 @@ def build_parser() -> argparse.ArgumentParser:
     rd.add_argument("--loops", type=int, default=1)
     rd.add_argument("--steps", type=int, default=5)
     rd.add_argument("--timeout-seconds", type=int, default=600)
+    specialist_host_cli = commands.add_parser("specialist-host", help="Native task handoff to existing host and unified intake")
+    specialist_host_cli.add_argument("action", choices=["prepare", "collect"])
+    specialist_host_cli.add_argument("--provider", choices=["aide", "rdagent", "arc"], required=True)
+    specialist_host_cli.add_argument("--root", required=True)
+    specialist_host_cli.add_argument("--plan-file")
+    specialist_host_cli.add_argument("--source-root")
+    specialist_host_cli.add_argument("--run-name")
     policy = commands.add_parser("policy")
     policy.add_argument("action", choices=["check", "explain"])
     policy.add_argument("rule_id", nargs="?")
@@ -173,8 +181,9 @@ def build_parser() -> argparse.ArgumentParser:
     process.add_argument("--expected-exe-path-sha256")
     commands.add_parser("demo")
     advice = commands.add_parser("advise", help="Build an offline decision and ChatGPT handoff; no dispatch")
-    advice.add_argument("--task-file", required=True)
-    advice.add_argument("--result-file", required=True)
+    advice.add_argument("--task-file")
+    advice.add_argument("--result-file")
+    advice.add_argument("--intake-file", help="Unified specialist intake instead of separate task/result files")
     advice.add_argument("--with-pdrw", action="store_true",
                         help="Use one read-only PD-RW-Agent resume, never grant permissions")
     advice.add_argument("--python", dest="pdrw_python", default=None)
@@ -300,6 +309,18 @@ def main(argv: list[str] | None = None) -> int:
                 result = rdagent.collect(args.root)
             else:
                 result = rdagent.score(args.root)
+        elif args.command == "specialist-host":
+            plan = _bounded_json_file(args.plan_file, "SPECIALIST_PLAN") if args.plan_file else None
+            if args.action == "prepare":
+                if args.run_name:
+                    raise ValueError("RUN_NAME_ONLY_FOR_COLLECTION")
+                result = specialist_host.prepare(args.provider, args.root, plan=plan,
+                    source_root=args.source_root, rules=load_policy(args.policy))
+            else:
+                if args.source_root:
+                    raise ValueError("SOURCE_ROOT_ONLY_FOR_PREPARATION")
+                result = specialist_host.collect(args.provider, args.root, plan=plan,
+                    run_name=args.run_name)
         elif args.command == "policy":
             rules = load_policy(args.policy)
             if args.action == "check":
@@ -460,8 +481,16 @@ def main(argv: list[str] | None = None) -> int:
                     raise ValueError("EVALUATION_HANDOFF_NOT_USED")
                 result = evaluate_pairs(assessment)
         elif args.command == "advise":
-            task = TaskPacket(**_bounded_json_file(args.task_file, "TASK"))
-            original = _bounded_json_file(args.result_file, "RESULT")
+            if args.intake_file:
+                if args.task_file or args.result_file:
+                    raise ValueError("INTAKE_OR_TASK_RESULT_NOT_BOTH")
+                task, original = specialist_host.unpack_intake(
+                    _bounded_json_file(args.intake_file, "SPECIALIST_INTAKE"))
+            else:
+                if not args.task_file or not args.result_file:
+                    raise ValueError("TASK_AND_RESULT_OR_INTAKE_REQUIRED")
+                task = TaskPacket(**_bounded_json_file(args.task_file, "TASK"))
+                original = _bounded_json_file(args.result_file, "RESULT")
             normalized = normalize_result(original, task)
             all_rules = load_policy(args.policy)
             guidance = compile_guidance(task, all_rules)
@@ -564,6 +593,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             raise ValueError("command not implemented")
         print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.command == "specialist-host" and args.action == "prepare":
+            return 3 if result["status"] == "HOST_PREPARATION_BLOCKED" else 0
         if args.command == "codex":
             return 0 if result.get("status") in (
                 "CLI_CAPABILITY_PROBE_OK", "PILOT_CONTRACT_PREVIEW_ONLY",
