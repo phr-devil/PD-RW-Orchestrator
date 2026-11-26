@@ -26,6 +26,13 @@ _OTHER_BLOBS = {
         "rdagent/scenarios/data_science/scen/__init__.py": "b6f60a3af1bcbcdcd09e6f299d702f669dae4c07",
         "rdagent/scenarios/data_science/test_eval.py": "d91fcd57eef8be8f8a802abcc323a7662bf7da05",
     },
+    "tooluniverse": {
+        "tooluniverse/__init__.py": "d4ffc14b1f17e6cd7ee152390c7da2ecccbe472d",
+        "tooluniverse/crossref_tool.py": "70e2c1bf13d91f99577a04cdb33aed6dab92497b",
+        "tooluniverse/base_rest_tool.py": "cbbe567098a88df61d9daf098b506663ab82d114",
+        "tooluniverse/base_tool.py": "d3f214df5b924fc24510464544d8caad362e1d51",
+        "tooluniverse/data/crossref_tools.json": "60ebf250c806eb5ad247fc583d18b3e1e8d2307d",
+    },
     "arc": {
         "researchclaw/cli.py": "4c272dd8ae24b2f7cf579c9d057d9af25d689cc2",
         "researchclaw/config.py": "04bd7309746d65b5c83b902c9531f7a917c3184a",
@@ -47,7 +54,7 @@ def inspect_aide_install(root):
 
 
 def inspect_specialist_install(provider, root):
-    if provider not in ("aide", "rdagent", "arc"):
+    if provider not in ("aide", "rdagent", "arc", "tooluniverse"):
         raise ValueError("UNKNOWN_SPECIALIST_PROVIDER")
     blobs = _BLOBS if provider == "aide" else _OTHER_BLOBS[provider]
     root = Path(root)

@@ -183,7 +183,7 @@ def unpack_intake(value):
                       "plan_sha256_declared", "artifact_observation", "execution_authorized"}:
         raise ValueError("SPECIALIST_INTAKE_FIELDS_INVALID")
     provider = value["provider"]
-    if provider not in _PROVIDERS or value["execution_authorized"] is not False:
+    if provider not in (*_PROVIDERS, "tooluniverse") or value["execution_authorized"] is not False:
         raise ValueError("SPECIALIST_INTAKE_PROVIDER_OR_AUTH_INVALID")
     task = TaskPacket(**value["task"])
     raw = value["agent_result"]
@@ -245,6 +245,13 @@ def review_metadata(value):
                 raise ValueError("SPECIALIST_ARC_SUMMARY_INVALID")
             safe_summary = {"candidate_count": count, "declared_placeholder_count": placeholders,
                             "real_search_reported": real, "literature_verified": False}
+        elif provider == "tooluniverse":
+            count, returned, total = (summary.get(k) for k in ("candidate_count", "returned_count", "total_count_reported"))
+            if (type(count) is not int or type(returned) is not int or not 0 <= count <= returned <= 20
+                    or (total is not None and (type(total) is not int or total < returned))):
+                raise ValueError("SPECIALIST_TOOLUNIVERSE_SUMMARY_INVALID")
+            safe_summary = {"candidate_count": count, "returned_count": returned,
+                            "total_count_reported": total, "literature_verified": False}
         else:
             numeric = ("candidate_rmse", "linear_baseline_rmse", "mean_baseline_rmse",
                        "delta_candidate_minus_linear")

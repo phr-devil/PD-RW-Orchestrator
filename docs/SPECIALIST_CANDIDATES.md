@@ -12,7 +12,7 @@ not scientific merit. No new provider is marked ready.
 | [EvoScientist](https://github.com/EvoScientist/EvoScientist/tree/e3c1a380f3925e280e5dee548216932c75dc0864) | e3c1a38 | 5110 | Apache-2.0 | Broad research team and self-evolving skills; overlaps both Orchestrator and Experience; use only independently bounded specialist capabilities if justified. |
 | [Agent Laboratory](https://github.com/SamuelSchmidgall/AgentLaboratory/tree/d9017d90e329112d2a80b7712f37ee9094d2cd27) | d9017d9 | 5943 | MIT | Literature, experimentation and reports; compare narrow modules; disable writing and AgentRxiv upload paths unless separately authorized. |
 
-All five remain screening leads, not registered execution providers. Prefer
+ToolUniverse now has a narrow native Crossref adapter; live acceptance is pending. The other four remain screening leads, not registered execution providers. Prefer
 ToolUniverse's selected scientific interfaces or ASReview's literature
 screening over another end-to-end orchestration framework, if a real task
 shows that need. Additional algorithm-specialist leads AI-Scientist-v2 and

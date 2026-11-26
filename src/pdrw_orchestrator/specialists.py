@@ -35,6 +35,17 @@ _CATALOG = (
      "limitations": ["Full pipeline includes experiments and manuscript generation.",
                      "Only stages 1-4 previewed; startup/post-run effects and literature fallback require independent checks.",
                      "No live execution, no measured scientific gain."]},
+    {"id": "tooluniverse", "repository": "mims-harvard/ToolUniverse",
+     "revision": "23168a559128900f743be48f4094e4b99596f672",
+     "stars_observed": 1809, "license_declared": "Apache-2.0",
+     "capabilities": ["literature_lookup", "doi_lookup"],
+     "integration": "OPT_IN_NATIVE_CROSSREF_CALL_NOT_LIVE_ACCEPTED",
+     "bounded_interface": "public Crossref keyword/DOI metadata only",
+     "source_paths": ["docs/guide/literature_search_tools_tutorial.rst", "src/tooluniverse/crossref_tool.py",
+                      "src/tooluniverse/base_rest_tool.py", "src/tooluniverse/data/crossref_tools.json"],
+     "limitations": ["Optional pinned install and explicit public network opt-in required.",
+                     "No arbitrary tool execution, no LLM, no full text or novelty certification.",
+                     "No live acceptance or measured scientific gain."]},
 )
 
 

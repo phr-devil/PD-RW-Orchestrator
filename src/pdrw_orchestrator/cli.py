@@ -11,7 +11,7 @@ from .adapters.aide import preview_aide, collect_aide
 from . import aide_pilot, aide_dev
 from .adapters.aide_install import inspect_aide_install
 from .adapters.arc import preview_arc, collect_arc
-from .adapters import rdagent
+from .adapters import rdagent, tooluniverse
 from . import specialist_host
 from .assets import data_root
 from .adapters.codex import probe_codex
@@ -132,6 +132,13 @@ def build_parser() -> argparse.ArgumentParser:
     specialist_host_cli.add_argument("--source-root")
     specialist_host_cli.add_argument("--run-name")
     specialist_host_cli.add_argument("--score-replay", action="store_true", help="Collect independently scored replay predictions for algorithm pilots")
+    tu = commands.add_parser("tooluniverse", help="Optional native public Crossref query; explicit network opt-in")
+    tu.add_argument("action", choices=["preview", "query", "collect"])
+    tu.add_argument("--plan-file", required=True)
+    tu.add_argument("--root")
+    tu.add_argument("--source-root")
+    tu.add_argument("--execute", action="store_true")
+    tu.add_argument("--ack-public-network", action="store_true")
     policy = commands.add_parser("policy")
     policy.add_argument("action", choices=["check", "explain"])
     policy.add_argument("rule_id", nargs="?")
@@ -338,6 +345,19 @@ def main(argv: list[str] | None = None) -> int:
                     raise ValueError("SOURCE_ROOT_ONLY_FOR_PREPARATION")
                 result = specialist_host.collect(args.provider, args.root, plan=plan,
                     run_name=args.run_name, score_replay=args.score_replay)
+        elif args.command == "tooluniverse":
+            plan = _bounded_json_file(args.plan_file, "TOOLUNIVERSE_PLAN")
+            rules = load_policy(args.policy)
+            if args.action != "query" and (args.execute or args.ack_public_network or args.source_root):
+                raise ValueError("TOOLUNIVERSE_QUERY_OPTIONS_ONLY")
+            if args.action == "preview":
+                result = tooluniverse.preview(plan, rules)
+            else:
+                if not args.root:
+                    raise ValueError("TOOLUNIVERSE_ROOT_REQUIRED")
+                result = (tooluniverse.query(plan, args.root, args.source_root, execute=args.execute,
+                    ack_public_network=args.ack_public_network, rules=rules) if args.action == "query"
+                    else tooluniverse.collect(plan, args.root, rules=rules))
         elif args.command == "policy":
             rules = load_policy(args.policy)
             if args.action == "check":

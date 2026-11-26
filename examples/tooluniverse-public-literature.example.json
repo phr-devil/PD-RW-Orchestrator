@@ -1,0 +1,9 @@
+{
+  "schema_version": "tooluniverse-public-literature-v1",
+  "project_id": "PUBLIC-EXAMPLE",
+  "task_id": "DISCOVERY-001",
+  "attempt_id": "crossref-001",
+  "operation": "search",
+  "public_text": "group independent evaluation wearable sensor regression",
+  "limit": 10
+}

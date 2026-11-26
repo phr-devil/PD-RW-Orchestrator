@@ -317,6 +317,38 @@ zero model-call budgets prevent model-based recommendations. This is a
 task-fit suggestion, not runtime acceptance. Do not send private topics,
 data, paths, credentials or unapproved instructions to external services.
 
+## Narrow native ToolUniverse literature lookup
+
+For a public bibliographic question use the pinned ToolUniverse Crossref
+tool instead of an entire research agent. The optional dependency is
+operator-installed in a dedicated environment, not a core dependency.
+The implementation calls the upstream CrossrefRESTTool directly with its
+pinned config, only keyword search (1–20 results) or a DOI lookup. It
+does not load a workspace profile, generic tool catalog, arbitrary endpoints,
+LLM or generated code. It compares selected source blobs and checks the
+active package origin, not the entire dependency or environment closure.
+
+~~~powershell
+pdrw-orch tooluniverse preview --plan-file examples/tooluniverse-public-literature.example.json
+# Only in an approved isolated environment, with explicit public network consent:
+pdrw-orch tooluniverse query --plan-file PUBLIC_PLAN.json --root ABSOLUTE_NEW_LOOKUP_ROOT --source-root ABSOLUTE_PACKAGE_PARENT --execute --ack-public-network
+pdrw-orch tooluniverse collect --plan-file PUBLIC_PLAN.json --root ABSOLUTE_LOOKUP_ROOT
+~~~
+
+The query creates a fresh request record and a compact literature.json with
+DOI/title/venue/year and reported citation counts; duplicate DOI records are
+collapsed and page count is distinct from total matches. No abstracts or full
+papers are copied. The returned standard intake can be used by existing
+advise --intake-file. Native network retries/timeouts are not hard total limits.
+Never put unpublished hypotheses, personal details, credentials or private
+research information in public_text. The host must authorize egress to
+Crossref and ensure the environment is credential-free and isolated.
+An explicit CLI flag is not an original research grant. The local policy
+network deny is honored. If the lookup fails, reconcile the existing
+request root rather than automatically retry. This is metadata discovery,
+not literature completeness, relevance or novelty verification.
+No live installation or network execution is claimed by unit tests.
+
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with
