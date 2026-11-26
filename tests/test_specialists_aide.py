@@ -76,3 +76,9 @@ def test_cli(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["status"] == "AIDE_PREVIEW_ONLY"
     assert main(["specialists", "select", "--capability", "optimization"]) == 0
     assert json.loads(capsys.readouterr().out)["candidates"][0]["id"] == "aide"
+
+def test_native_string_values_are_not_yaml_scalars():
+    p = dict(plan(), attempt_id="true", code_model="null")
+    args = preview_aide(p)["argv_preview"]
+    assert 'exp_name="true"' in args
+    assert 'agent.code.model="null"' in args

@@ -74,6 +74,52 @@ candidate code, original protocol, independent predictions and strong baseline
 using existing PD-RW tools before accepting a contribution. The host must
 ensure immutable isolated outputs; intake does not prove OS-level containment.
 
+## Fixed public synthetic acceptance task
+
+Use a fresh absolute root on the operator machine. The new command only creates
+deterministic public synthetic files; it never imports/starts AIDE or calls a
+model. Set actual approved provider/model names (the placeholders below are
+not an authorization).
+
+~~~powershell
+pdrw-orch aide-pilot prepare --root ABSOLUTE_NEW_PILOT_ROOT --attempt-id pilot-001 --code-provider openai --code-model MODEL --feedback-provider openai --feedback-model MODEL
+pdrw-orch aide-pilot verify --root ABSOLUTE_NEW_PILOT_ROOT
+~~~
+
+The worker directory contains only task.md and labeled train (6 groups),
+validation (2 groups) and unlabeled test (4 groups), 12 rows per group. Only x
+is a legal feature; group and row IDs are not predictors. The review directory
+contains the exact plan and manifest and must not be mounted to the worker.
+The evaluator derives test labels in the operator/review process from the
+public fixture generator. This is not a confidential blind test or a genuine
+scientific benchmark; the source is public and must not be available to the
+worker. Verification checks exact file set and bytes, not host isolation.
+
+The returned native argv must be invoked from worker/ in a separate trusted
+environment at the pinned revision, only after real permission, total cost,
+egress, time and process-tree controls have been established. Do not pass
+raw model keys to generated code. AIDE internally parses reported validation
+metrics with an LLM, and save_run can select even a buggy node. Its latest
+workspace submission is not necessarily from the selected best code.
+After inspecting/collecting the selected code, a trusted operator must replay
+that exact code on the frozen worker inputs in a fresh isolated environment,
+then explicitly export its predictions to review/submission.csv with columns
+row_id,prediction. Record the actual code hash, run and prediction provenance
+separately; do not overwrite the original provider output.
+
+~~~powershell
+pdrw-orch aide-pilot score --root ABSOLUTE_NEW_PILOT_ROOT
+~~~
+
+Scoring independently recomputes RMSE and per-group values against the fixed
+test labels and train-only mean/linear baselines; it rejects duplicate,
+missing, foreign or non-finite predictions and tampered inputs. It never
+executes candidate code, authenticates prediction origin, or declares valid
+science. Compare the general-host route using a separately prepared identical
+fixture and the same evaluator. The public synthetic holdback is not SEALED
+project data. No scientific superiority is inferred from this engineering
+pilot; real matched independent research evaluation remains necessary.
+
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with

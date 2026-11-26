@@ -8,6 +8,7 @@ from pathlib import Path
 from .agent_result import normalize_result
 from .specialists import candidates as specialist_candidates
 from .adapters.aide import preview_aide, collect_aide
+from . import aide_pilot
 from .assets import data_root
 from .adapters.codex import probe_codex
 from .capabilities import accept_codex_pilot_probe
@@ -89,6 +90,16 @@ def build_parser() -> argparse.ArgumentParser:
     aide.add_argument("--plan-file", required=True)
     aide.add_argument("--attempt-root")
     aide.add_argument("--run-name")
+    pilot = commands.add_parser("aide-pilot", help="Prepare/verify/score fixed public synthetic inputs; never launches")
+    pilot.add_argument("action", choices=["prepare", "verify", "score"])
+    pilot.add_argument("--root", required=True)
+    pilot.add_argument("--attempt-id")
+    pilot.add_argument("--code-provider")
+    pilot.add_argument("--code-model")
+    pilot.add_argument("--feedback-provider")
+    pilot.add_argument("--feedback-model")
+    pilot.add_argument("--steps", type=int, default=3)
+    pilot.add_argument("--step-timeout", type=int, default=60)
     policy = commands.add_parser("policy")
     policy.add_argument("action", choices=["check", "explain"])
     policy.add_argument("rule_id", nargs="?")
@@ -241,6 +252,16 @@ def main(argv: list[str] | None = None) -> int:
                 if not args.attempt_root or not args.run_name:
                     raise ValueError("AIDE_ATTEMPT_ROOT_AND_RUN_NAME_REQUIRED")
                 result = collect_aide(plan, args.attempt_root, args.run_name)
+        elif args.command == "aide-pilot":
+            if args.action == "prepare":
+                result = aide_pilot.prepare(args.root, attempt_id=args.attempt_id,
+                    code_provider=args.code_provider, code_model=args.code_model,
+                    feedback_provider=args.feedback_provider, feedback_model=args.feedback_model,
+                    steps=args.steps, step_timeout_seconds=args.step_timeout)
+            elif args.action == "verify":
+                result = aide_pilot.verify(args.root)
+            else:
+                result = aide_pilot.score(args.root)
         elif args.command == "policy":
             rules = load_policy(args.policy)
             if args.action == "check":

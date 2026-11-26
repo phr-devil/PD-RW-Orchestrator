@@ -60,7 +60,7 @@ def preview_aide(plan: dict) -> dict:
         "scientific review is external. Instructions do not enforce isolation.\n"
     )
     argv = ["aide", "data_dir=data", "desc_file=task.md", "log_dir=logs",
-            "workspace_dir=workspaces", "exp_name=" + plan["attempt_id"],
+            "workspace_dir=workspaces", "exp_name=" + json.dumps(plan["attempt_id"]),
             "copy_data=true", "preprocess_data=false", "generate_report=false",
             "agent.data_preview=false", "agent.k_fold_validation=1",
             "agent.search.num_drafts=1", "agent.steps=" + str(plan["steps"]),
@@ -68,7 +68,7 @@ def preview_aide(plan: dict) -> dict:
             "agent.metric_maximize=" + str(plan["metric_maximize"]).lower()]
     for key in ("code", "feedback"):
         argv.extend(["agent." + key + ".provider=" + plan[key + "_provider"],
-                     "agent." + key + ".model=" + plan[key + "_model"],
+                     "agent." + key + ".model=" + json.dumps(plan[key + "_model"]),
                      "agent." + key + ".max_tokens=4096"])
     source = candidates("optimization")["candidates"][0]
     return {"status": "AIDE_PREVIEW_ONLY", "project_id": plan["project_id"],
@@ -127,6 +127,7 @@ def collect_aide(plan: dict, attempt_root: str | Path, run_name: str) -> dict:
            "findings": [], "scientific_assessment": {"claim_status": "NOT_ASSESSED",
                "protocol_status": "NOT_ASSESSED", "outcome": "NOT_ASSESSED", "review_required": True},
            "unresolved_issues": ["Provider execution, plan binding, metrics and data legality unverified.",
+                                 "AIDE best_solution.py can represent an unsuccessful node; latest workspace predictions may belong to a different node.",
                                  "Artifact refs relative to operator-selected attempt root; not original PD-RW Runs."],
            "next_action_candidates": ["Independently review original protocol and candidate code before any reuse."],
            "authorization_verified": False, "scientific_completion_verified": False}
