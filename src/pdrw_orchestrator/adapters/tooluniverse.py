@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import re
 from pathlib import Path
 
@@ -77,6 +78,9 @@ def _native_call(call, source_root):
     matches = [c for c in configs if c.get("name") == call["name"]]
     if len(matches) != 1:
         raise ValueError("TOOLUNIVERSE_NATIVE_CONFIG_MISMATCH")
+    # Upstream's supported light-import mode avoids initializing unrelated SDK/MCP modules.
+    # Intended for a fresh dedicated CLI process; it is not process isolation.
+    os.environ.setdefault("TOOLUNIVERSE_LIGHT_IMPORT", "true")
     try:
         from tooluniverse import credential_context
         if dataset:
@@ -86,6 +90,9 @@ def _native_call(call, source_root):
         with credential_context({}):
             tool = NativeTool(matches[0])
             tool.timeout = 20
+            # requests otherwise consults ambient proxies and .netrc credentials.
+            # An approved direct connection is required; no implicit proxy fallback.
+            tool.session.trust_env = False
             try:
                 return tool.run(call["arguments"])
             finally:

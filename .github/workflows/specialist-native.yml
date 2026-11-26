@@ -1,0 +1,60 @@
+name: Specialist native contract
+on:
+  push:
+    paths:
+      - 'src/pdrw_orchestrator/adapters/**'
+      - 'src/pdrw_orchestrator/aide_pilot.py'
+      - 'src/pdrw_orchestrator/specialist_host.py'
+      - 'src/pdrw_orchestrator/specialist_plan.py'
+      - 'src/pdrw_orchestrator/specialists.py'
+      - 'tests/test_specialist_native_contract.py'
+      - '.github/workflows/specialist-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: WecoAI/aideml
+          ref: b39bb0e145e7785bcbc29e1b5d123f01d8f04c2c
+          path: upstream-aide-native
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /aide/
+            !/aide/example_tasks/
+      - uses: actions/checkout@v4
+        with:
+          repository: mims-harvard/ToolUniverse
+          ref: 23168a559128900f743be48f4094e4b99596f672
+          path: upstream-tu-native
+          persist-credentials: false
+          sparse-checkout: |
+            src/tooluniverse
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Minimal dependencies for the tested native paths, not full specialist installs.
+      # Never install AIDE's broad ML/CUDA extras or fetch research datasets.
+      - name: Install core test dependencies
+        run: >-
+          python -m pip install -e ".[dev]" "requests>=2.32,<3"
+          "numpy==1.26.2" "pandas==2.1.4" "humanize==4.8.0"
+          "funcy==2.0" "openai>=1.69" "anthropic>=0.86"
+          "rich==13.7.0" "dataclasses_json>=0.6.4" "omegaconf>=2.3,<3"
+          "shutup>=0.2" "coolname>=2.2" "igraph>=0.11.3"
+          "genson>=1.2" "black~=26.3.1" "backoff" "pydantic>=2.11"
+      - name: Native code path checks (fixed code and intercepted HTTP)
+        env:
+          PDRW_NATIVE_AIDE_ROOT: ${{ github.workspace }}/upstream-aide-native
+          PDRW_NATIVE_TU_ROOT: ${{ github.workspace }}/upstream-tu-native/src
+          TOOLUNIVERSE_LIGHT_IMPORT: "true"
+          PYTHONUTF8: "1"
+        run: python -m pytest -q -s tests/test_specialist_native_contract.py

@@ -69,3 +69,7 @@ real task, missing scientific capabilities, and credible efficiency gains.
 Do not add a new architectural layer for hypothetical future needs.
 Report results through existing ChatGPT handoff and, only where actual
 evidence supports it, existing Experience feedback. Do not write a paper.
+
+## Native offline CI evidence
+
+The separate `Specialist native contract` workflow checks pinned upstream AIDE config/workspace and actual fixed-code interpreter execution, and ToolUniverse Crossref/Zenodo request construction and response parsing with HTTP intercepted. It uses minimal test dependencies and no research dataset, model, or live service. These results are narrower than full install or real research acceptance. AIDE handoff requests PYTHONUTF8=1 for its native text reader. ToolUniverse uses the upstream light-import mode by default and disables ambient requests proxy/netrc discovery; the approved host must provide a direct permitted connection. Do not bypass this with an unreviewed proxy.

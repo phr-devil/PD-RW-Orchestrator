@@ -480,3 +480,5 @@ scientific contribution. RD-Agent and ARC interfaces now also require live accep
 The existing mock, Codex/Claude and source bridge stay compatible. Neither the
 catalog nor preview/collect makes general registry agents ready. No live
 specialist run or scientific benefit is claimed by CI.
+
+Native source contract coverage is now a separate [workflow](../.github/workflows/specialist-native.yml), not a live service or autonomous search test. It is distinct from ordinary unit tests and from local operator acceptance.

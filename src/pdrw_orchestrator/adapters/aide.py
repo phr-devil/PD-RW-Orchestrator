@@ -76,7 +76,7 @@ def preview_aide(plan: dict) -> dict:
             "upstream_revision": source["revision"], "plan_sha256": digest,
             "protocol_ref_declared": plan["protocol_ref"],
             "data_manifest_sha256_declared": plan["data_manifest_sha256"],
-            "argv_preview": argv, "task_file_preview": task,
+            "argv_preview": argv, "environment_preview": {"PYTHONUTF8": "1"}, "task_file_preview": task,
             "task_file_sha256": _digest(task.encode("utf-8")),
             "expected_artifacts": ["logs/<index>-" + plan["attempt_id"] + "/best_solution.py",
                                    "logs/<index>-" + plan["attempt_id"] + "/journal.json"],
