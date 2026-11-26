@@ -11,6 +11,7 @@ from .adapters.aide import preview_aide, collect_aide
 from . import aide_pilot
 from .adapters.aide_install import inspect_aide_install
 from .adapters.arc import preview_arc, collect_arc
+from .adapters import rdagent
 from .assets import data_root
 from .adapters.codex import probe_codex
 from .capabilities import accept_codex_pilot_probe
@@ -108,6 +109,14 @@ def build_parser() -> argparse.ArgumentParser:
     arc.add_argument("action", choices=["preview", "collect"])
     arc.add_argument("--plan-file", required=True)
     arc.add_argument("--run-root")
+    rd = commands.add_parser("rdagent-pilot", help="Native custom data-science synthetic pilot, no dispatch")
+    rd.add_argument("action", choices=["prepare", "verify", "collect", "score"])
+    rd.add_argument("--root", required=True)
+    rd.add_argument("--attempt-id")
+    rd.add_argument("--config-sha256")
+    rd.add_argument("--loops", type=int, default=1)
+    rd.add_argument("--steps", type=int, default=5)
+    rd.add_argument("--timeout-seconds", type=int, default=600)
     policy = commands.add_parser("policy")
     policy.add_argument("action", choices=["check", "explain"])
     policy.add_argument("rule_id", nargs="?")
@@ -280,6 +289,17 @@ def main(argv: list[str] | None = None) -> int:
                 if not args.run_root:
                     raise ValueError("ARC_RUN_ROOT_REQUIRED")
                 result = collect_arc(plan, args.run_root)
+        elif args.command == "rdagent-pilot":
+            if args.action == "prepare":
+                result = rdagent.prepare(args.root, attempt_id=args.attempt_id,
+                    loops=args.loops, steps=args.steps, timeout_seconds=args.timeout_seconds,
+                    config_sha256=args.config_sha256)
+            elif args.action == "verify":
+                result = rdagent.verify(args.root)
+            elif args.action == "collect":
+                result = rdagent.collect(args.root)
+            else:
+                result = rdagent.score(args.root)
         elif args.command == "policy":
             rules = load_policy(args.policy)
             if args.action == "check":

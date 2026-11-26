@@ -11,7 +11,7 @@ another scheduler or search algorithm when an existing system suffices.
 | Project | Initial fit | Actual status |
 |---|---|---|
 | WecoAI/aideml | Native ML code tree search | Preview and artifact intake, no live execution |
-| microsoft/RD-Agent | Scenario-specific research/development iteration | README screened, no adapter |
+| microsoft/RD-Agent | Scenario-specific research/development iteration | Native synthetic task preparation/intake, no live execution |
 | aiming-lab/AutoResearchClaw | Literature, hypothesis, staged pipeline | Stages 1–4 preview/intake only |
 
 The catalog includes commit, observed stars, declared license, source paths,
@@ -166,18 +166,59 @@ independent literature verification and H3 candidate review, not a claim
 of novelty or actual author decision. The caller must confirm the source
 and run context; absence of later-stage files is not proof of no effects.
 
-RD-Agent deeper screening found native custom DataScienceScen, local
-competition/evaluator datasets, explicit sampling configuration, and bounded
-step_n/loop_n/timeout; actual custom task and independent evaluator must be
-mapped before dispatch. No automatic Kaggle or Docker setup. Prefer actual
-AIDE acceptance over a speculative third adapter.
+## Complementary algorithm development: RD-Agent
+
+Pinned upstream custom DataScienceScen reads a competition directory, can
+reuse a prepared sample directory, and runs main.py in its configured
+environment with workspace_input mounted. Its native TestEval explicitly
+injects submission_test.csv into the generated-code workspace. Therefore the
+public grouped pilot uses the exact AIDE train/validation/test inputs, an
+explicit description, a format-only sample submission and identical
+pre-created sample data, with **no eval dataset or final answer file**.
+Independent scoring reuses the existing evaluator, not native test scoring.
+
+~~~powershell
+pdrw-orch rdagent-pilot prepare --root ABSOLUTE_NEW_RD_ROOT --attempt-id rd-001 --config-sha256 REVIEWED_PROVIDER_CONFIG_SHA256
+pdrw-orch rdagent-pilot verify --root ABSOLUTE_NEW_RD_ROOT
+~~~
+
+The command prepares worker/ds_data and review/plan.json, verifies the
+exact native input tree and returns the CLI argv and environment overrides.
+No execution, installation, credential access, or configuration binding
+verification is performed. The digest is a declaration for operator review.
+Use a fresh separate environment, actual approved model configuration,
+existing trusted Docker or Conda runtime, no image pulls, no generated-code
+network, no shared private source or secrets, and a hard external total cost
+and process-tree boundary. The returned host path may need remapping inside
+the isolated runtime; verify effective DS settings before authorized launch.
+RD-Agent's step/loop/timer limits are requests, not a hard host boundary.
+Do not run this with Kaggle, MLE-Bench, or an arbitrary checkpoint.
+
+After the authorized run, manually select the actual candidate workspace
+using the native trace, preserve all its required modules/config and copy
+only reviewed main.py, scores.csv and submission.csv into review/candidate/.
+Intake reads/hashes these three exact files, never deserializes native
+sessions, never automatically selects a winner, and never runs code:
+
+~~~powershell
+pdrw-orch rdagent-pilot collect --root ABSOLUTE_NEW_RD_ROOT
+pdrw-orch rdagent-pilot score --root ABSOLUTE_NEW_RD_ROOT
+~~~
+
+The score command requires a separate review/submission.csv produced by
+independent replay of the full selected code bundle; the intake prediction
+is not automatically reused. Same test rows, RMSE, mean/linear baselines
+and group breakdown as AIDE. No real code provenance or scientific validity
+is inferred. Review source/metrics independently, report actual budgets
+and compare against matched general-host/AIDE arms. This is a public
+engineering fixture, not a scientific or confidential benchmark.
 
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with
 PD-RW-Agent vs AIDE under equivalent evidence, protocol and resource budget.
 Measure real calls/tokens/time/cost, reproducibility and independently valid
-scientific contribution. Choose RD-Agent next only for complementary capability. ARC preview/intake remains bounded and requires live acceptance before real discovery use.
+scientific contribution. RD-Agent and ARC interfaces now also require live acceptance; prioritize a real AIDE result before adding further speculative providers.
 The existing mock, Codex/Claude and source bridge stay compatible. Neither the
 catalog nor preview/collect makes general registry agents ready. No live
 specialist run or scientific benefit is claimed by CI.

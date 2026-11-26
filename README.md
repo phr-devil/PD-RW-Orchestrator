@@ -4,8 +4,9 @@
 
 The primary purpose is to **reuse existing specialist research systems**, not
 build a second PD-RW-Agent or recreate their search/experiment algorithms.
-The first bounded integration is AIDE task translation and artifact intake; ARC now also has limited discovery preview and intake.
-it does not yet launch AIDE. A fixed public grouped synthetic pilot can be prepared, verified and independently scored without a model call. See [specialist integration](docs/SPECIALIST_INTEGRATION.md)
+AIDE and RD-Agent have bounded native task preparation/intake on a shared
+public grouped synthetic pilot; ARC has limited discovery preview/intake.
+The independent scorer runs without a model call. No specialist is launched automatically. See [specialist integration](docs/SPECIALIST_INTEGRATION.md)
 for the pinned candidate catalog, current capability boundaries and commands.
 
 

@@ -4,8 +4,9 @@
 
 The original Codex/Claude synthetic pilots remain supported, but are not the
 main development direction. AIDE now has a separate, read-only native CLI
-translation and artifact intake contract (no dispatch). RD-Agent and ARC are
-pinned candidates, not implemented adapters. See [SPECIALIST_INTEGRATION.md](SPECIALIST_INTEGRATION.md).
+translation and artifact intake contract (no dispatch). ARC has limited
+literature discovery preview/intake and RD-Agent has fixed custom-task
+preparation and intake. None has a general execution adapter. See [SPECIALIST_INTEGRATION.md](SPECIALIST_INTEGRATION.md).
 The historical interface description below remains for compatibility.
 
 Agent providers are distinct processes/environments and must remain optional. **Current v0.4 implements mock plus one explicitly invoked synthetic-fixture Codex subprocess.** Configured `arc`, `rdagent`, `aide`, `host` entries are NOT_CONNECTED until an actual provider handshake and bounded acceptance succeed.

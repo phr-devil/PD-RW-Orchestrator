@@ -188,6 +188,11 @@ def score(root):
     """Score only explicit review/submission.csv, never provider code or journal."""
     checked = verify(root)
     raw = _read(Path(root) / "review" / "submission.csv", _MAX_PRED_BYTES)
+    return score_predictions(raw, checked["plan_sha256"])
+
+
+def score_predictions(raw, plan_sha256):
+    """Shared operator-side synthetic evaluator; never authenticate prediction origin."""
     rows = _rows()
     train = [(x, y) for g, x, y in rows.values() if int(g[1:]) < 6]
     test = {key: (g, x, y) for key, (g, x, y) in rows.items() if int(g[1:]) >= 8}
@@ -210,7 +215,7 @@ def score(root):
                          "linear_baseline_rmse": rmse(baseline, keys)}
     cand, base = rmse(candidate, ids), rmse(baseline, ids)
     return {"status": "SYNTHETIC_PREDICTION_SCORED_ONLY",
-            "plan_sha256": checked["plan_sha256"], "prediction_sha256": _digest(raw),
+            "plan_sha256": plan_sha256, "prediction_sha256": _digest(raw),
             "rows": len(ids), "independent_group_count": len(groups), "metric": "RMSE",
             "candidate_rmse": cand, "linear_baseline_rmse": base,
             "mean_baseline_rmse": rmse(lambda key: my, ids),
