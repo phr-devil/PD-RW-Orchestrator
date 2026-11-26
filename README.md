@@ -205,3 +205,5 @@ Agent backends are capability slots, not automatically installed or authorized. 
 Never commit a private case library, manuscript, original Run, credentials or local machine data into this public repository.
 
 The `specialists compile` command converts an explicit next TaskPacket and provider options into an existing native plan. It supports prior artifact byte comparison and a declared independent review reference without transferring grants. See [specialist integration](docs/SPECIALIST_INTEGRATION.md).
+
+For real operator use, follow [concentrated specialist host acceptance](docs/SPECIALIST_HOST_ACCEPTANCE.md). AIDE and RD-Agent support staged custom DEV; public literature/dataset retrieval and explicit cross-provider task compilation are available. Live acceptance remains required.

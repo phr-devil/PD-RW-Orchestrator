@@ -462,6 +462,15 @@ scorer is not valid for custom DEV. Use original PD-RW evidence and evaluator
 to judge candidate performance. No live execution is established by these
 tests.
 
+## Concentrated real-host acceptance
+
+Use [SPECIALIST_HOST_ACCEPTANCE.md](SPECIALIST_HOST_ACCEPTANCE.md) as one
+bounded WorkBuddy/Codex task. Existing advise now adds a provider-specific
+scientific focus to the SAME independent review task: actual nearest papers
+for discovery, independent truth and license for datasets, and evidence-to-
+contribution judgment for algorithms. It does not generate another review
+round, prove novelty or change the existing decision/authorization gate.
+
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with

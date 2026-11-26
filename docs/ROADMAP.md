@@ -130,3 +130,5 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   or model execution granted.
 
 Custom RD-Agent DEV now shares the operator-staged snapshot verification and existing native host handoff. Do not extend the provider registry further until real acceptance evidence identifies a gap.
+
+Use SPECIALIST_HOST_ACCEPTANCE.md as the next real host task; provider-specific review focus reuses the existing advise decision rather than adding a second scientific decision engine.

@@ -326,3 +326,35 @@ def verify_artifacts(value, root):
             "total_bytes": sum(x["bytes"] for x in items), "artifact_bytes_reverified": True,
             "scientific_validity_verified": False, "process_completion_verified": False,
             "authorization_verified": False}
+
+
+def scientific_review_focus(metadata):
+    """A compact provider-specific review objective, not another decision engine."""
+    provider = metadata["provider"]
+    summary = metadata.get("provider_summary") or {}
+    if provider == "tooluniverse" and summary.get("record_kind") == "dataset":
+        return ("Compare the most promising candidate datasets by actual license, accessible bytes, "
+                "independent units, ground-truth labels, condition coverage, observation legality "
+                "and nearest published use. Metadata is not proof of suitability. Identify a data "
+                "path that could distinguish the proposed scientific claim, or the single missing "
+                "premise; UNKNOWN is not a negative. Preserve original H4 selection.")
+    if provider in ("tooluniverse", "arc"):
+        prefix = ""
+        if provider == "arc" and (summary.get("real_search_reported") is False or
+                summary.get("declared_placeholder_count", 0) > 0):
+            prefix = "Do not treat placeholder/fallback records as literature. "
+        return (prefix + "Verify named closest original papers (not just metadata) under matched "
+                "legal information and evaluation; state concrete unresolved gap, strongest competing "
+                "explanation and the minimum discriminating evidence. Distinguish unsearched from absent "
+                "work. Compare distinct credible opportunities and paper/reuse value in the original "
+                "H3 workflow; do not select a topic for the author.")
+    if provider in ("aide", "rdagent"):
+        return ("Independently inspect complete selected code, legal data/splits, matched strong "
+                "baselines and original evaluator/replay. Native scores and replay-file scores alone "
+                "do not prove valid science. Separate invalid, not-run, inconclusive, valid negative "
+                "and bounded positive results. Compare named nearest work and actual new knowledge, "
+                "including reliability/measurement boundaries or useful negative findings. Reuse existing "
+                "evidence; if a credible contribution exists, identify only its decisive remaining gap. "
+                "Otherwise compare a genuinely different legal information lever and cheapest discriminating "
+                "probe. Preserve H6/H8 scope; no automatic manuscript, publication or new training.")
+    raise ValueError("SPECIALIST_REVIEW_PROVIDER_INVALID")

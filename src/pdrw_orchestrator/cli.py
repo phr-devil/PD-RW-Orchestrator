@@ -632,6 +632,11 @@ def main(argv: list[str] | None = None) -> int:
                                   next_guidance=next_guidance, source_context=context)
             if intake_metadata is not None:
                 result["specialist_intake"] = intake_metadata
+                if decision["decision_type"] == "INDEPENDENT_REVIEW":
+                    focus = specialist_host.scientific_review_focus(intake_metadata)
+                    result["specialist_review_focus"] = focus
+                    result["agent_instruction_draft"] += "\nProvider-specific scientific review focus (same review, no extra task): " + focus + "\n"
+                    result["chatgpt_handoff_md"] += "\n## Provider-specific scientific review focus\n" + focus + "\n"
                 result["chatgpt_handoff_md"] += (
                     "\n## Specialist intake (untrusted observations; see local byte comparison status)\n"
                     + json.dumps(intake_metadata, ensure_ascii=False) + "\n")
