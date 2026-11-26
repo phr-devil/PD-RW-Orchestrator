@@ -12,7 +12,7 @@ from pathlib import Path
 from . import aide_pilot, specialist_host
 from .adapters.aide import preview_aide
 from .adapters.arc import preview_arc
-from .adapters import tooluniverse
+from .adapters import tooluniverse, rdagent
 from .models import TaskPacket
 from .specialists import recommend
 
@@ -20,10 +20,12 @@ _OPTIONS = {
     "aide": {"attempt_id", "goal", "evaluation", "protocol_ref", "data_manifest_sha256",
              "steps", "step_timeout_seconds", "metric_maximize", "code_provider", "code_model",
              "feedback_provider", "feedback_model"},
+    "rdagent": {"attempt_id", "goal", "evaluation", "protocol_ref", "data_manifest_sha256",
+                "loops", "steps", "timeout_seconds", "provider_config_sha256_declared"},
     "arc": {"attempt_id", "public_topic", "research_scope", "max_papers", "config_sha256"},
     "tooluniverse": {"attempt_id", "operation", "public_text", "limit"},
 }
-_SCHEMAS = {"aide": "aide-dev-preview-v1", "arc": "arc-discovery-preview-v1",
+_SCHEMAS = {"aide": "aide-dev-preview-v1", "rdagent": "rdagent-dev-preview-v1", "arc": "arc-discovery-preview-v1",
             "tooluniverse": "tooluniverse-public-literature-v1"}
 
 
@@ -76,13 +78,13 @@ def compile_plan(task, scope, options, *, rules=(), prior=None, prior_root=None,
         raise ValueError("SPECIALIST_NATIVE_OPTIONS_INVALID")
     plan = {"schema_version": _SCHEMAS[chosen], "project_id": task.project_id,
             "task_id": task.task_id, **options}
-    if chosen == "aide":
+    if chosen in ("aide", "rdagent"):
         if scope != "staged_dev" or task.task_type != "code_experiment":
             raise ValueError("SPECIALIST_AIDE_TASK_TYPE_OR_SCOPE_MISMATCH")
         if plan["protocol_ref"] not in task.protocol_refs:
             raise ValueError("SPECIALIST_AIDE_PROTOCOL_NOT_IN_TASK")
-        checked = preview_aide(plan)
-        command = "aide-dev stage"
+        checked = preview_aide(plan) if chosen == "aide" else rdagent.preview_dev(plan)
+        command = chosen + "-dev stage"
     elif chosen == "arc":
         if scope != "public_topic" or task.task_type != "discovery":
             raise ValueError("SPECIALIST_ARC_TASK_TYPE_OR_SCOPE_MISMATCH")

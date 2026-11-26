@@ -31,6 +31,14 @@ def _check_snapshot(root, plan):
     worker, review, data = root / "worker", root / "review", root / "worker" / "data"
     for path in (worker, review, data):
         _plain(path, directory=True)
+    count, total = check_manifest_files(review, data, plan)
+    return root, preview, count, total
+
+
+def check_manifest_files(review, data, plan, *, extra_names=()):
+    """Shared flat DEV manifest check, not a data-scope proof."""
+    _plain(review, directory=True)
+    _plain(data, directory=True)
     raw = aide_pilot._read(review / "manifest.json", 64 * 1024)
     if hashlib.sha256(raw).hexdigest() != plan["data_manifest_sha256"]:
         raise ValueError("AIDE_DEV_MANIFEST_DIGEST_MISMATCH")
@@ -48,14 +56,14 @@ def _check_snapshot(root, plan):
             raise ValueError("AIDE_DEV_FILE_RECORD_INVALID")
         name, size, digest = item["name"], item["bytes"], item["sha256"]
         if (not isinstance(name, str) or not _NAME.fullmatch(name)
-                or _RESERVED.search(name) or Path(name).suffix.lower() not in _EXT
+                or _RESERVED.search(name) or name.casefold() in {"submission_test.csv", "grade.py", "description.md"} or Path(name).suffix.lower() not in _EXT
                 or name.casefold() in expected
                 or type(size) is not int or not 1 <= size <= _MAX_FILE
                 or not isinstance(digest, str) or not _SHA.fullmatch(digest)):
             raise ValueError("AIDE_DEV_FILE_RECORD_INVALID")
         expected[name.casefold()] = item
         total += size
-    if total > _MAX_TOTAL or {p.name for p in data.iterdir()} != {x["name"] for x in expected.values()}:
+    if total > _MAX_TOTAL or {p.name for p in data.iterdir()} != ({x["name"] for x in expected.values()} | set(extra_names)):
         raise ValueError("AIDE_DEV_DATA_SET_OR_SIZE_MISMATCH")
     # Reject unsafe metadata before reading any snapshot file contents.
     for item in expected.values():
@@ -77,7 +85,7 @@ def _check_snapshot(root, plan):
                 h.update(chunk)
             if stream.read(1) or h.hexdigest() != item["sha256"]:
                 raise ValueError("AIDE_DEV_DATA_BYTES_MISMATCH")
-    return root, preview, len(expected), total
+    return len(expected), total
 
 
 def stage(root, plan):

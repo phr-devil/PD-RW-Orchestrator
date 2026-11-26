@@ -121,6 +121,10 @@ def build_parser() -> argparse.ArgumentParser:
     arc.add_argument("action", choices=["preview", "collect"])
     arc.add_argument("--plan-file", required=True)
     arc.add_argument("--run-root")
+    rddev = commands.add_parser("rdagent-dev", help="Stage or verify an operator-prepared custom DEV task")
+    rddev.add_argument("action", choices=["preview", "stage", "verify"])
+    rddev.add_argument("--plan-file", required=True)
+    rddev.add_argument("--root")
     rd = commands.add_parser("rdagent-pilot", help="Native custom data-science synthetic pilot, no dispatch")
     rd.add_argument("action", choices=["prepare", "verify", "collect", "score"])
     rd.add_argument("--root", required=True)
@@ -341,6 +345,14 @@ def main(argv: list[str] | None = None) -> int:
                 if not args.run_root:
                     raise ValueError("ARC_RUN_ROOT_REQUIRED")
                 result = collect_arc(plan, args.run_root)
+        elif args.command == "rdagent-dev":
+            plan = _bounded_json_file(args.plan_file, "RDAGENT_DEV_PLAN")
+            if args.action == "preview":
+                result = rdagent.preview_dev(plan)
+            else:
+                if not args.root:
+                    raise ValueError("RDAGENT_DEV_ROOT_REQUIRED")
+                result = rdagent.stage_dev(args.root, plan) if args.action == "stage" else rdagent.verify_dev(args.root, plan)
         elif args.command == "rdagent-pilot":
             if args.action == "prepare":
                 result = rdagent.prepare(args.root, attempt_id=args.attempt_id,

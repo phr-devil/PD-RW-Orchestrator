@@ -128,3 +128,5 @@ Do not duplicate H-stage/science ledger, introduce uncontrolled agent spawning o
   handoff. Remain pre-RC until final integration results and operator
   acceptance establish the actual release scope. No original authority
   or model execution granted.
+
+Custom RD-Agent DEV now shares the operator-staged snapshot verification and existing native host handoff. Do not extend the provider registry further until real acceptance evidence identifies a gap.

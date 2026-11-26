@@ -421,6 +421,47 @@ before selecting data or requesting any download. Search totals are not
 evidence of completeness. Unit tests use synthetic responses; no live
 provider lookup or download was executed in this change.
 
+## Custom RD-Agent DEV tasks
+
+The custom DataScienceScen uses a local competition directory and a debug
+sample directory. For a real task, the operator stages identical approved
+flat DEV snapshots in both ROOT/worker/ds_data/pdrw-dev-task/ and
+ROOT/worker/ds_data/sample/pdrw-dev-task/. Use the same exact
+ROOT/review/manifest.json format as AIDE DEV, with identical project/task
+IDs and manifest digest. No eval directory, answer file, arbitrary sampling
+script or other competition is permitted. The two copies are checked,
+not generated or copied by this tool. A sample_submission.csv, if required,
+must contain format-only placeholders and be in the manifest. The actual
+host must ensure no held-back labels are present under any name.
+Use TaskPacket task_type=code_experiment, capability=research_iteration,
+scope=staged_dev to prefer RD-Agent, with native options:
+
+~~~json
+{"attempt_id":"rd-001","goal":"Scoped candidate model","evaluation":"Original grouped DEV protocol and submission format","protocol_ref":"P/PROTOCOL","data_manifest_sha256":"<manifest digest>","loops":1,"steps":5,"timeout_seconds":600,"provider_config_sha256_declared":"<approved .env digest>"}
+~~~
+
+Compile with the existing specialists compile command. Stage creates two
+identical description.md files; it never runs candidate code or starts the
+provider. Verify checks manifest bytes, both data trees and descriptions.
+The native environment settings are shared with the existing RD pilot;
+inspect actual configuration, including Docker mounts, effective model
+egress and eval_sub_dir, before launch. RD-Agent describes dataset contents
+to its model, so ordinary DEV permission alone is not external transfer
+permission. Native metric inference/score is not the original evaluator.
+
+~~~powershell
+pdrw-orch rdagent-dev stage --root ABSOLUTE_DEV_ROOT --plan-file RD_PLAN.json
+pdrw-orch specialist-host prepare --provider rdagent --root ABSOLUTE_DEV_ROOT --plan-file RD_PLAN.json --source-root ABSOLUTE_SOURCE_PARENT
+# Existing host runs only with verified permission and isolation.
+pdrw-orch specialist-host collect --provider rdagent --root ABSOLUTE_DEV_ROOT --plan-file RD_PLAN.json
+~~~
+
+Export selected main.py, scores.csv, submission.csv and preserve the entire
+candidate workspace for independent project-specific replay. The synthetic
+scorer is not valid for custom DEV. Use original PD-RW evidence and evaluator
+to judge candidate performance. No live execution is established by these
+tests.
+
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with

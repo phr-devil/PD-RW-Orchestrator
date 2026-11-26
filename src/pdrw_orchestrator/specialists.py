@@ -18,9 +18,9 @@ _CATALOG = (
     {"id": "rdagent", "repository": "microsoft/RD-Agent",
      "revision": "484776c211e4fbbeef03e0ec00d6bbee7362a4f4",
      "stars_observed": 15504, "license_declared": "MIT",
-     "capabilities": ["hypothesis", "experiment_design", "code_experiment"],
-     "integration": "CUSTOM_SYNTHETIC_PREPARE_AND_INTAKE_ONLY",
-     "bounded_interface": "fixed public grouped regression via specialist-host",
+     "capabilities": ["hypothesis", "experiment_design", "code_experiment", "research_iteration"],
+     "integration": "CUSTOM_DEV_PREPARE_AND_INTAKE_ONLY",
+     "bounded_interface": "fixed public grouped regression or operator-staged DEV native iteration via specialist-host",
      "source_paths": ["README.md", "docs/scens/data_science.rst", "rdagent/app/data_science/loop.py", "rdagent/app/data_science/conf.py", "rdagent/app/cli.py", "rdagent/scenarios/data_science/scen/__init__.py", "rdagent/scenarios/data_science/test_eval.py", "rdagent/scenarios/data_science/dev/runner/eval.py", "rdagent/log/timer.py"],
      "limitations": ["Custom DataScienceScen supports native bounded loops; data sampling/evaluator and Docker dependencies need acceptance.",
                      "Native test evaluation injects answers into candidate workspace; no eval dataset in pilot.",
@@ -88,13 +88,15 @@ def recommend(task, *, scope, rules=()):
         chosen, reason = "aide", "FIXED_METRIC_NATIVE_SEARCH"
         if scope == "public_synthetic" and role == "code_experiment":
             alternatives = ["rdagent"]
+    elif scope == "staged_dev" and role == "research_iteration":
+        chosen, alternatives, reason = "rdagent", ["aide"], "CUSTOM_DEV_NATIVE_RD_ITERATION"
     elif scope == "public_synthetic" and role == "experiment_design":
         chosen, reason = "rdagent", "BOUNDED_SYNTHETIC_RD_ITERATION_ONLY"
     if chosen in ("arc", "tooluniverse") and task.task_type != "discovery":
         chosen, alternatives, reason = None, [], "NATIVE_TASK_TYPE_MISMATCH"
     if chosen == "aide" and task.task_type != "code_experiment":
         chosen, alternatives, reason = None, [], "NATIVE_TASK_TYPE_MISMATCH"
-    if chosen == "rdagent" and task.task_type != "experiment_design":
+    if chosen == "rdagent" and task.task_type != ("code_experiment" if scope == "staged_dev" else "experiment_design"):
         chosen, alternatives, reason = None, [], "NATIVE_TASK_TYPE_MISMATCH"
     # Scope/role alone cannot establish scientific adequacy or permissions.
     effects = list(task.required_effects)
