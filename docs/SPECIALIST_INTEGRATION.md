@@ -482,3 +482,7 @@ catalog nor preview/collect makes general registry agents ready. No live
 specialist run or scientific benefit is claimed by CI.
 
 Native source contract coverage is now a separate [workflow](../.github/workflows/specialist-native.yml), not a live service or autonomous search test. It is distinct from ordinary unit tests and from local operator acceptance.
+
+## Native RD-Agent and ARC configuration checks
+
+The native-contract job additionally loads actual pinned RD-Agent DataScienceBasePropSetting with conflicting inherited KG_ settings and checks the native command declaration, and loads actual ARC argparse and RCConfig with the discovery example and stage enumeration. It does not start either provider's pipeline, Docker runtime or model. RD-Agent explicitly disables DS_AUTO_SUBMIT and inherited vector/graph RAG. ARC prepare now blocks selected unsafe config declarations, including full-auto, profile defaults, external KB, enabled memory/skills and inline credential fields. These selected checks do not verify all native effects or external permissions. See the host acceptance document for separate environments and remaining live acceptance.

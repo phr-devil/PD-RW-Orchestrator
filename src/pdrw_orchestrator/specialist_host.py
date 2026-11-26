@@ -15,7 +15,7 @@ from . import aide_pilot, aide_dev
 from .adapters import rdagent
 from .adapters.aide import collect_aide, _plain, preview_aide
 from .adapters.aide_install import inspect_specialist_install
-from .adapters.arc import collect_arc, preview_arc
+from .adapters.arc import collect_arc, preview_arc, discovery_config_issues
 from .agent_result import normalize_result
 from .models import TaskPacket
 from .policy import compile_guidance
@@ -83,7 +83,13 @@ def prepare(provider, root, *, plan=None, source_root=None, rules=()):
     config = "NOT_APPLICABLE_TO_AIDE_CLI_PLAN"
     if provider == "arc":
         config = _config_observation(cwd / "config.arc.yaml", plan["config_sha256"])
-        if (cwd / "run").exists() or (cwd / "run").is_symlink():
+        if config == "DECLARED_BYTES_MATCH":
+            raw_config = aide_pilot._read(cwd / "config.arc.yaml", 128 * 1024)
+            if hashlib.sha256(raw_config).hexdigest() != plan["config_sha256"]:
+                blockers.append("PROVIDER_CONFIG_NOT_MATCHED")
+            else:
+                blockers.extend(discovery_config_issues(raw_config, plan["max_papers"]))
+        if any((cwd / name).exists() or (cwd / name).is_symlink() for name in ("run", "kb")):
             blockers.append("OUTPUT_ALREADY_EXISTS_RECONCILE")
     elif provider == "rdagent":
         # Native app/cli.py loads .env in cwd before initializing settings.

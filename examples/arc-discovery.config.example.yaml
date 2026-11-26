@@ -1,0 +1,61 @@
+# Copy into a fresh ARC attempt as config.arc.yaml. Replace the reviewed
+# model/endpoint and keep credentials in the approved host environment.
+# This example grants no network or model permission.
+project:
+  name: public-discovery
+  mode: semi-auto
+research:
+  topic: Public sensor literature example
+  daily_paper_count: 10
+  graceful_degradation: false
+runtime:
+  timezone: Asia/Tokyo
+  max_parallel_tasks: 1
+  retry_limit: 0
+notifications:
+  channel: console
+knowledge_base:
+  backend: markdown
+  root: kb
+llm:
+  provider: openai-compatible
+  base_url: https://api.openai.com/v1
+  api_key_env: OPENAI_API_KEY
+  primary_model: REPLACE_APPROVED_MODEL
+  fallback_models: []
+  timeout_sec: 60
+literature_search:
+  sources: [openalex, semantic_scholar, arxiv]
+  max_results_per_query: 10
+security:
+  hitl_required_stages: [5, 9, 20]
+  allow_publish_without_approval: false
+  redact_sensitive_logs: true
+experiment:
+  mode: simulated
+  sandbox:
+    gpu_required: false
+  opencode:
+    enabled: false
+memory:
+  enabled: false
+skills:
+  enabled: false
+knowledge_graph:
+  enabled: false
+metaclaw_bridge:
+  enabled: false
+overleaf:
+  enabled: false
+web_search:
+  enabled: false
+openclaw_bridge:
+  use_cron: false
+  use_message: false
+  use_memory: false
+  use_sessions_spawn: false
+  use_web_fetch: false
+  use_browser: false
+mcp:
+  server_enabled: false
+  external_servers: []

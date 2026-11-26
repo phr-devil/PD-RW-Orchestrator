@@ -153,3 +153,78 @@ def test_native_tooluniverse_rest_transport(tmp_path, monkeypatch, operation):
     if operation == "dataset":
         assert not summary["license_verified"]
     print("NATIVE_TOOLUNIVERSE_INTERCEPTED_HTTP_ONLY", operation, "candidate_count=1")
+
+
+def test_native_rd_settings_and_cli_source_contract(tmp_path, monkeypatch):
+    import ast
+    from pdrw_orchestrator.adapters import rdagent
+    source = _source("PDRW_NATIVE_RD_ROOT", monkeypatch)
+    assert inspect_specialist_install("rdagent", source)["status"] == "PINNED_SELECTED_BYTES_MATCH"
+    root = tmp_path.resolve() / "rd"
+    pilot = rdagent.prepare(root, attempt_id="native-rd", config_sha256="a"*64)
+    monkeypatch.chdir(root / "worker")
+    # Native Pydantic settings inherit KG_ values; conflicting inherited settings
+    # must not defeat explicit DS_ overrides.
+    monkeypatch.setenv("KG_AUTO_SUBMIT", "true")
+    monkeypatch.setenv("KG_IF_USING_MLE_DATA", "true")
+    monkeypatch.setenv("KG_IF_USING_GRAPH_RAG", "true")
+    for key, value in pilot["environment_preview"].items():
+        monkeypatch.setenv(key, value)
+    from rdagent.app.data_science.conf import DataScienceBasePropSetting
+    settings = DataScienceBasePropSetting()
+    assert settings.scen.endswith(".DataScienceScen")
+    assert Path(settings.local_data_path) == root / "worker" / "ds_data"
+    assert not settings.auto_submit and not settings.if_using_mle_data
+    assert not settings.if_using_graph_rag and not settings.if_using_vector_rag
+    assert not settings.sample_data_by_LLM and not settings.enable_log_archive
+    assert not settings.enable_knowledge_base and not settings.enable_research_rag
+    assert settings.eval_sub_dir == "eval"
+    assert settings.debug_timeout == 120 and settings.full_timeout == 120
+    assert settings.coder_max_loop == 2 and settings.runner_max_loop == 1
+    # The full CLI imports unrelated research stacks; inspect its original
+    # command declaration rather than pretending those dependencies ran.
+    tree = ast.parse((source / "rdagent/app/cli.py").read_text(encoding="utf-8"))
+    func = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                and node.name == "data_science_cli")
+    names = {arg.arg for arg in func.args.args}
+    assert {"competition","checkout","loop_n","step_n","timeout"} <= names
+    assert "--no-checkout" in (source / "rdagent/app/cli.py").read_text(encoding="utf-8")
+    argv = pilot["argv_preview"]
+    competition = argv[argv.index("--competition")+1]
+    assert (Path(settings.local_data_path)/competition/"description.md").is_file()
+    assert (Path(settings.local_data_path)/"sample"/competition/"description.md").is_file()
+    assert not (Path(settings.local_data_path)/settings.eval_sub_dir/competition/"submission_test.csv").exists()
+    print("NATIVE_RD_SETTINGS_ONLY", "custom_scenario=true", "auto_submit=false", "full_cli_executed=false")
+
+
+def test_native_arc_parser_config_and_stage_contract(tmp_path, monkeypatch):
+    import hashlib
+    from pdrw_orchestrator.adapters.arc import preview_arc, discovery_config_issues
+    source = _source("PDRW_NATIVE_ARC_ROOT", monkeypatch)
+    assert inspect_specialist_install("arc", source)["status"] == "PINNED_SELECTED_BYTES_MATCH"
+    from researchclaw.cli import build_parser
+    from researchclaw.config import RCConfig
+    from researchclaw.pipeline.stages import Stage, STAGE_SEQUENCE
+    raw = (Path(__file__).resolve().parents[1] / "examples/arc-discovery.config.example.yaml").read_bytes()
+    assert not discovery_config_issues(raw, 10)
+    plan = {"schema_version":"arc-discovery-preview-v1","project_id":"PUBLIC-EXAMPLE",
+            "task_id":"T","attempt_id":"native-arc","public_topic":"public sensor fixture",
+            "research_scope":"literature only","max_papers":10,
+            "config_sha256":hashlib.sha256(raw).hexdigest()}
+    config_file = tmp_path / "config.arc.yaml"
+    config_file.write_bytes(raw)
+    monkeypatch.chdir(tmp_path)
+    args = build_parser().parse_args(preview_arc(plan)["argv_preview"][1:])
+    assert args.command == "run" and not args.auto_approve and not args.resume
+    assert args.no_graceful_degradation and args.output == "run"
+    assert args.config == "config.arc.yaml"
+    cfg = RCConfig.load(config_file, check_paths=False)
+    assert cfg.project.mode == "semi-auto" and cfg.experiment.mode == "simulated"
+    assert not cfg.memory.enabled and not cfg.skills.enabled
+    assert not cfg.security.allow_publish_without_approval and not cfg.web_search.enabled
+    assert not cfg.metaclaw_bridge.enabled and not cfg.overleaf.enabled
+    assert cfg.knowledge_base.root == "kb"
+    assert cfg.literature_search.max_results_per_query == 10
+    stages = [s for s in STAGE_SEQUENCE if Stage[args.from_stage] <= s <= Stage[args.to_stage]]
+    assert stages == [Stage.TOPIC_INIT, Stage.PROBLEM_DECOMPOSE, Stage.SEARCH_STRATEGY, Stage.LITERATURE_COLLECT]
+    print("NATIVE_ARC_PARSER_CONFIG_ONLY", "stages=1-4", "pipeline_executed=false")

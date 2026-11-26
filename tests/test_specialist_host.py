@@ -1,3 +1,4 @@
+from pathlib import Path
 import hashlib
 import json
 import pytest
@@ -96,7 +97,7 @@ def test_rd_config_checked_not_exposed(tmp_path, monkeypatch):
 def test_arc_config_and_policy(tmp_path, monkeypatch):
     root = tmp_path.resolve() / "arc"
     root.mkdir()
-    raw = b"synthetic fixture, not an actual usable config\n"
+    raw = (Path(__file__).resolve().parents[1] / "examples/arc-discovery.config.example.yaml").read_bytes()
     plan = arc_plan(raw)
     checkout = tmp_path.resolve() / "source"
     source(checkout, monkeypatch, "arc")
@@ -109,6 +110,10 @@ def test_arc_config_and_policy(tmp_path, monkeypatch):
         "task_types": ["*"], "text": "No network", "deny_effects": ["network"]})
     value = specialist_host.prepare("arc", root, source_root=checkout, plan=plan, rules=(deny,))
     assert "LOCAL_POLICY_EFFECT_DENIED" in value["blockers"]
+    unsafe = raw.replace(b"mode: semi-auto", b"mode: full-auto")
+    (root / "config.arc.yaml").write_bytes(unsafe)
+    blocked = specialist_host.prepare("arc", root, source_root=checkout, plan=arc_plan(unsafe))
+    assert "ARC_CONFIG_AUTO_OR_PROFILE" in blocked["blockers"]
     (root / "config.arc.yaml").write_bytes(b"changed")
     assert "PROVIDER_CONFIG_NOT_MATCHED" in specialist_host.prepare("arc", root, source_root=checkout, plan=plan)["blockers"]
 

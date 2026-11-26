@@ -8,6 +8,8 @@ import json
 import re
 from pathlib import Path
 
+import yaml
+
 from .aide import _plain
 from ..specialists import candidates
 
@@ -46,6 +48,7 @@ def preview_arc(plan):
             "argv_preview": ["researchclaw", "run", "--config", "config.arc.yaml",
                 "--output", "run", "--from-stage", "TOPIC_INIT", "--to-stage", "LITERATURE_COLLECT",
                 "--no-graceful-degradation", "--topic", topic],
+            "environment_preview": {"PYTHONUTF8": "1"},
             "config_sha256_declared": plan["config_sha256"],
             "paper_target_declared_not_enforced": plan["max_papers"],
             "required_host_checks": [
@@ -124,3 +127,58 @@ def collect_arc(plan, root):
                     "Artifact paths are relative to the isolated ARC output, not original project Runs."],
                 "next_action_candidates": ["Independently verify primary literature, compare alternatives, then prepare author H3 options."],
                 "authorization_verified": False, "scientific_completion_verified": False}}
+
+
+def discovery_config_issues(raw, max_papers):
+    """Check a small set of known startup hazards in the reviewed YAML.
+
+    Not a substitute for native config loading, host isolation or a hard budget.
+    Never return config values (the upstream CLI copies YAML to its run output).
+    """
+    try:
+        data = yaml.safe_load(raw)
+    except (yaml.YAMLError, UnicodeError, RecursionError):
+        return ["ARC_CONFIG_YAML_INVALID"]
+    if not isinstance(data, dict):
+        return ["ARC_CONFIG_YAML_INVALID"]
+
+    def get(*path):
+        value = data
+        for key in path:
+            if not isinstance(value, dict):
+                return None
+            value = value.get(key)
+        return value
+
+    issues = []
+    if get("project", "mode") not in ("docs-first", "semi-auto") or get("project", "profile") not in (None, ""):
+        issues.append("ARC_CONFIG_AUTO_OR_PROFILE")
+    if get("knowledge_base", "backend") != "markdown" or get("knowledge_base", "root") != "kb" or get("knowledge_base", "obsidian_vault") not in (None, ""):
+        issues.append("ARC_CONFIG_KB_NOT_LOCAL")
+    if get("experiment", "mode") != "simulated" or get("experiment", "sandbox", "gpu_required") not in (None, False):
+        issues.append("ARC_CONFIG_EXPERIMENT_MODE")
+    for section in ("memory", "skills", "knowledge_graph", "metaclaw_bridge", "overleaf", "web_search"):
+        if get(section, "enabled") is not False:
+            issues.append("ARC_CONFIG_DISABLE_" + section.upper())
+    for key in ("use_cron", "use_message", "use_memory", "use_sessions_spawn", "use_web_fetch", "use_browser"):
+        if get("openclaw_bridge", key) not in (None, False):
+            issues.append("ARC_CONFIG_BRIDGE_ENABLED")
+            break
+    if get("mcp", "server_enabled") not in (None, False) or get("mcp", "external_servers") not in (None, []):
+        issues.append("ARC_CONFIG_MCP_ENABLED")
+    if get("hitl", "enabled") not in (None, False) or get("security", "allow_publish_without_approval") not in (None, False):
+        issues.append("ARC_CONFIG_HITL_OR_PUBLISH")
+    if get("notifications", "channel") != "console" or get("notifications", "target") not in (None, ""):
+        issues.append("ARC_CONFIG_NOTIFICATION")
+    for path in (("llm", "api_key"), ("llm", "reviewer_api_key"), ("llm", "s2_api_key"),
+                 ("literature_search", "openalex_api_key"), ("literature_search", "s2_api_key"),
+                 ("web_search", "tavily_api_key"), ("metaclaw_bridge", "fallback_api_key")):
+        if get(*path) not in (None, ""):
+            issues.append("ARC_CONFIG_INLINE_CREDENTIAL")
+            break
+    for path in (("research", "daily_paper_count"), ("literature_search", "max_results_per_query")):
+        val = get(*path)
+        if type(val) is not int or not 1 <= val <= max_papers:
+            issues.append("ARC_CONFIG_PAPER_TARGET_MISMATCH")
+            break
+    return issues

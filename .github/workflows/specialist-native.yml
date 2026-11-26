@@ -8,6 +8,7 @@ on:
       - 'src/pdrw_orchestrator/specialist_plan.py'
       - 'src/pdrw_orchestrator/specialists.py'
       - 'tests/test_specialist_native_contract.py'
+      - 'examples/arc-discovery.config.example.yaml'
       - '.github/workflows/specialist-native.yml'
   workflow_dispatch:
 permissions:
@@ -38,6 +39,24 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             src/tooluniverse
+      - uses: actions/checkout@v4
+        with:
+          repository: microsoft/RD-Agent
+          ref: 484776c211e4fbbeef03e0ec00d6bbee7362a4f4
+          path: upstream-rd-native
+          persist-credentials: false
+          sparse-checkout: |
+            rdagent/app
+            rdagent/core
+            rdagent/scenarios/data_science
+      - uses: actions/checkout@v4
+        with:
+          repository: aiming-lab/AutoResearchClaw
+          ref: be4ba4755bf1b52220f25e13b2293b5956590070
+          path: upstream-arc-native
+          persist-credentials: false
+          sparse-checkout: |
+            researchclaw
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -50,11 +69,13 @@ jobs:
           "funcy==2.0" "openai>=1.69" "anthropic>=0.86"
           "rich==13.7.0" "dataclasses_json>=0.6.4" "omegaconf>=2.3,<3"
           "shutup>=0.2" "coolname>=2.2" "igraph>=0.11.3"
-          "genson>=1.2" "black~=26.3.1" "backoff" "pydantic>=2.11"
+          "genson>=1.2" "black~=26.3.1" "backoff" "pydantic>=2.11" "pydantic-settings>=2.8,<3"
       - name: Native code path checks (fixed code and intercepted HTTP)
         env:
           PDRW_NATIVE_AIDE_ROOT: ${{ github.workspace }}/upstream-aide-native
           PDRW_NATIVE_TU_ROOT: ${{ github.workspace }}/upstream-tu-native/src
+          PDRW_NATIVE_RD_ROOT: ${{ github.workspace }}/upstream-rd-native
+          PDRW_NATIVE_ARC_ROOT: ${{ github.workspace }}/upstream-arc-native
           TOOLUNIVERSE_LIGHT_IMPORT: "true"
           PYTHONUTF8: "1"
         run: python -m pytest -q -s tests/test_specialist_native_contract.py
