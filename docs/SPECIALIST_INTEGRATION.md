@@ -276,6 +276,47 @@ See [SPECIALIST_CANDIDATES.md](SPECIALIST_CANDIDATES.md) for a source-pinned
 screen of five complementary or overlapping systems. Do not install all;
 prioritize actual native use and targeted, missing research capability.
 
+## From fixed engineering pilot to operator-staged DEV
+
+AIDE can now consume an explicitly staged, flat DEV-only snapshot instead of
+the fixed synthetic fixture. This does not authorize real-project execution
+or data export. The operator must select and stage only already authorized
+DEV bytes in a disposable isolated root. Never point this tool at the
+original project tree or reserved data.
+
+Layout: ROOT/worker/data/ (flat data files), ROOT/review/manifest.json.
+The manifest is an exact list, with SHA-256 and size for each file:
+
+~~~json
+{"schema_version":"aide-dev-snapshot-v1","project_id":"P","task_id":"T","scope":"DEV_ONLY_DECLARED","files":[{"name":"train.csv","sha256":"<actual SHA256>","bytes":123}]}
+~~~
+
+Use the existing AIDE plan schema with actual project/task IDs and
+protocol reference, reviewed goal/evaluation text and SHA-256 of the exact
+manifest file bytes. Stage creates only worker/task.md; verify checks
+the exact data set, size/hash, task bytes and declared scope. Maximum 64
+flat files, 128 MiB/file, 512 MiB total. No copying, original project traversal,
+automatic grant or provider call. The operator must supply independent
+project-specific evaluator and replay; synthetic scoring is forbidden here.
+
+~~~powershell
+pdrw-orch aide-dev stage --root ABSOLUTE_DEV_ROOT --plan-file DEV_PLAN.json
+pdrw-orch specialist-host prepare --provider aide --root ABSOLUTE_DEV_ROOT --plan-file DEV_PLAN.json --source-root ABSOLUTE_SOURCE_PARENT
+# Existing authorized host runs exact native argv only after real scope/containment checks.
+pdrw-orch specialist-host collect --provider aide --root ABSOLUTE_DEV_ROOT --plan-file DEV_PLAN.json --run-name 0-attempt-001
+~~~
+
+For preliminary routing:
+~~~powershell
+pdrw-orch specialists recommend --task-file TASK.json --scope staged_dev
+~~~
+Scope is declared, not authenticated. Public topics may use ARC discovery,
+fixed-metric tasks may use AIDE, synthetic RD iteration may use RD-Agent,
+and scientific review defaults to the general host. Denied effects and
+zero model-call budgets prevent model-based recommendations. This is a
+task-fit suggestion, not runtime acceptance. Do not send private topics,
+data, paths, credentials or unapproved instructions to external services.
+
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with

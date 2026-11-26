@@ -10,7 +10,7 @@ _CATALOG = (
      "stars_observed": 1633, "license_declared": "MIT",
      "capabilities": ["code_experiment", "optimization"],
      "integration": "PREVIEW_AND_ARTIFACT_INTAKE_ONLY",
-     "bounded_interface": "fixed public grouped regression via specialist-host",
+     "bounded_interface": "fixed public grouped regression or operator-staged DEV snapshot via specialist-host",
      "source_paths": ["README.md", "setup.py", "aide/utils/config.yaml", "aide/run.py", "aide/utils/config.py"],
      "limitations": ["Native metric search; group/temporal split requires independent evaluator.",
                      "Generated code and model calls require separate isolation and approval.",
@@ -54,3 +54,47 @@ def candidates(capability: str | None = None) -> dict:
     return {"status": "SPECIALIST_CANDIDATES_ONLY", "observed_as_of": "2026-11-26",
             "capability": capability, "candidates": rows,
             "selected_provider": None, "execution_authorized": False}
+
+def recommend(task, *, scope, rules=()):
+    """Select one task-fit candidate, not a runtime capability acceptance.
+
+    Scope is a caller declaration. A provider that has not passed actual host
+    acceptance remains ineligible for automatic dispatch.
+    """
+    from .models import TaskPacket
+    from .policy import compile_guidance
+    if not isinstance(task, TaskPacket):
+        raise ValueError("SPECIALIST_TASK_REQUIRED")
+    if scope not in ("public_topic", "public_synthetic", "staged_dev", "original_local"):
+        raise ValueError("SPECIALIST_SCOPE_INVALID")
+    role = task.capability or task.task_type
+    chosen, alternatives, reason = None, [], "USE_GENERAL_HOST_SCIENTIFIC_JUDGMENT"
+    if scope == "public_topic" and role in ("discovery", "literature"):
+        chosen, reason = "arc", "PUBLIC_TOPIC_NATIVE_DISCOVERY_STAGES_1_TO_4"
+    elif scope == "public_topic" and role in ("literature_lookup", "doi_lookup"):
+        chosen, reason = "tooluniverse", "NARROW_METADATA_QUERY_WITHOUT_LLM"
+    elif scope in ("public_synthetic", "staged_dev") and role in ("code_experiment", "optimization"):
+        chosen, reason = "aide", "FIXED_METRIC_NATIVE_SEARCH"
+        if scope == "public_synthetic" and role == "code_experiment":
+            alternatives = ["rdagent"]
+    elif scope == "public_synthetic" and role == "experiment_design":
+        chosen, reason = "rdagent", "BOUNDED_SYNTHETIC_RD_ITERATION_ONLY"
+    # Scope/role alone cannot establish scientific adequacy or permissions.
+    effects = list(task.required_effects)
+    if chosen:
+        effects = sorted(set(effects) | ({"network"} if chosen == "tooluniverse"
+                      else {"network", "external_model"} if chosen == "arc"
+                      else {"network", "external_model", "training"}))
+    from dataclasses import replace
+    guidance = compile_guidance(replace(task, required_effects=tuple(effects)), rules)
+    if guidance.denied_effects:
+        chosen, alternatives, reason = None, [], "LOCAL_POLICY_DENIED_EFFECT"
+    if task.budget.get("max_model_calls") == 0 and chosen not in (None, "tooluniverse"):
+        chosen, alternatives, reason = None, [], "NO_MODEL_CALL_BUDGET"
+    return {"status": "SPECIALIST_ROUTE_PROPOSAL_ONLY", "project_id": task.project_id,
+            "task_id": task.task_id, "scope_declared": scope, "capability": role,
+            "recommended_candidate": chosen, "alternatives": alternatives,
+            "reason": reason, "required_effects_for_review": effects,
+            "guidance": guidance.to_dict(), "fallback": "PD-RW-Agent/general host",
+            "execution_authorized": False, "capability_accepted": False,
+            "can_auto_dispatch": False}

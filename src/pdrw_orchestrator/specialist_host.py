@@ -11,7 +11,7 @@ import math
 import re
 from pathlib import Path
 
-from . import aide_pilot
+from . import aide_pilot, aide_dev
 from .adapters import rdagent
 from .adapters.aide import collect_aide, _plain, preview_aide
 from .adapters.aide_install import inspect_specialist_install
@@ -38,6 +38,13 @@ def _context(provider, root, plan=None):
                           objective=plan["public_topic"] + "\n" + plan["research_scope"],
                           required_effects=("external_model", "network"))
         cwd = root
+    elif provider == "aide" and plan is not None:
+        native = aide_dev.verify(root, plan)
+        task = TaskPacket(project_id=plan["project_id"], task_id=plan["task_id"],
+                          task_type="code_experiment", capability="code_experiment",
+                          objective=plan["goal"], protocol_refs=(plan["protocol_ref"],),
+                          required_effects=("external_model", "network", "training"))
+        cwd = root / "worker"
     else:
         if plan is not None:
             raise ValueError("PILOT_PLAN_IS_ALREADY_PREPARED")
@@ -102,7 +109,7 @@ def prepare(provider, root, *, plan=None, source_root=None, rules=()):
         "environment_overrides": native.get("environment_preview", {}),
         "source_observation": source, "config_observation": config,
         "guidance": guidance.to_dict(), "blockers": blockers,
-        "required_host_checks": native["required_host_checks"],
+        "required_host_checks": native["required_host_checks"] + (["Actual DEV scope and external transmission are not proven by snapshot hashes; authenticate original H6/DEV permission, data classification and original protocol. Independent project-specific evaluator and replay are required."] if native["status"] == "DECLARED_DEV_SNAPSHOT_BYTES_MATCH_ONLY" else []),
         "host_instruction": [
             "Read this local packet once; do not pass it wholesale to the model or external provider.",
             "Resolve listed blockers. Authenticate existing original scope or obtain only genuinely new grants; no hash or packet grants permission.",
@@ -119,7 +126,7 @@ def prepare(provider, root, *, plan=None, source_root=None, rules=()):
 
 def collect(provider, root, *, plan=None, run_name=None, score_replay=False):
     root, cwd, plan, native, task = _context(provider, root, plan)
-    if score_replay and provider == "arc":
+    if score_replay and (provider == "arc" or native["status"] == "DECLARED_DEV_SNAPSHOT_BYTES_MATCH_ONLY"):
         raise ValueError("SCORING_ONLY_FOR_ALGORITHM_PILOTS")
     if provider == "aide":
         if not run_name:

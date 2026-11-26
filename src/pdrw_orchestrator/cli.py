@@ -6,9 +6,9 @@ import sqlite3
 from pathlib import Path
 
 from .agent_result import normalize_result
-from .specialists import candidates as specialist_candidates
+from .specialists import candidates as specialist_candidates, recommend as recommend_specialist
 from .adapters.aide import preview_aide, collect_aide
-from . import aide_pilot
+from . import aide_pilot, aide_dev
 from .adapters.aide_install import inspect_aide_install
 from .adapters.arc import preview_arc, collect_arc
 from .adapters import rdagent
@@ -87,13 +87,19 @@ def build_parser() -> argparse.ArgumentParser:
     agents = commands.add_parser("agents")
     agents.add_argument("action", choices=["list"])
     specialist = commands.add_parser("specialists", help="Pinned external research project candidates")
-    specialist.add_argument("action", choices=["list", "select"])
+    specialist.add_argument("action", choices=["list", "select", "recommend"])
     specialist.add_argument("--capability")
+    specialist.add_argument("--task-file")
+    specialist.add_argument("--scope", choices=["public_topic", "public_synthetic", "staged_dev", "original_local"])
     aide = commands.add_parser("aide", help="Native AIDE task preview and read-only artifact intake")
     aide.add_argument("action", choices=["preview", "collect"])
     aide.add_argument("--plan-file", required=True)
     aide.add_argument("--attempt-root")
     aide.add_argument("--run-name")
+    dev = commands.add_parser("aide-dev", help="Stage or verify an operator-prepared DEV snapshot")
+    dev.add_argument("action", choices=["stage", "verify"])
+    dev.add_argument("--root", required=True)
+    dev.add_argument("--plan-file", required=True)
     pilot = commands.add_parser("aide-pilot", help="Prepare/verify/score fixed public synthetic inputs; never launches")
     pilot.add_argument("action", choices=["prepare", "verify", "score"])
     pilot.add_argument("--root", required=True)
@@ -270,7 +276,14 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "specialists":
             if args.action == "select" and not args.capability:
                 raise ValueError("SPECIALIST_CAPABILITY_REQUIRED")
-            result = specialist_candidates(args.capability)
+            if args.action == "recommend":
+                if not args.task_file or not args.scope or args.capability:
+                    raise ValueError("SPECIALIST_RECOMMEND_TASK_AND_SCOPE_REQUIRED")
+                result = recommend_specialist(TaskPacket(**_bounded_json_file(args.task_file, "TASK")), scope=args.scope, rules=load_policy(args.policy))
+            else:
+                if args.task_file or args.scope:
+                    raise ValueError("TASK_AND_SCOPE_ONLY_FOR_RECOMMEND")
+                result = specialist_candidates(args.capability)
         elif args.command == "aide":
             plan = _bounded_json_file(args.plan_file, "AIDE_PLAN")
             if args.action == "preview":
@@ -279,6 +292,9 @@ def main(argv: list[str] | None = None) -> int:
                 if not args.attempt_root or not args.run_name:
                     raise ValueError("AIDE_ATTEMPT_ROOT_AND_RUN_NAME_REQUIRED")
                 result = collect_aide(plan, args.attempt_root, args.run_name)
+        elif args.command == "aide-dev":
+            plan = _bounded_json_file(args.plan_file, "AIDE_DEV_PLAN")
+            result = aide_dev.stage(args.root, plan) if args.action == "stage" else aide_dev.verify(args.root, plan)
         elif args.command == "aide-pilot":
             if args.action == "prepare":
                 result = aide_pilot.prepare(args.root, attempt_id=args.attempt_id,
