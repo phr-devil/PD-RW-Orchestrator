@@ -12,7 +12,7 @@ another scheduler or search algorithm when an existing system suffices.
 |---|---|---|
 | WecoAI/aideml | Native ML code tree search | Preview and artifact intake, no live execution |
 | microsoft/RD-Agent | Scenario-specific research/development iteration | README screened, no adapter |
-| aiming-lab/AutoResearchClaw | Literature, hypothesis, staged pipeline | README screened, no adapter |
+| aiming-lab/AutoResearchClaw | Literature, hypothesis, staged pipeline | Stages 1–4 preview/intake only |
 
 The catalog includes commit, observed stars, declared license, source paths,
 and limitations. Stars are not a scientific ranking. Other discovery leads:
@@ -120,13 +120,64 @@ fixture and the same evaluator. The public synthetic holdback is not SEALED
 project data. No scientific superiority is inferred from this engineering
 pilot; real matched independent research evaluation remains necessary.
 
+## Read-only installation check
+
+~~~powershell
+pdrw-orch aide-install --root ABSOLUTE_PACKAGE_PARENT
+~~~
+
+Supply the actual site-packages parent (non-editable) or checkout parent of
+the aide package (editable). Compare six specific source/config files with
+the Git blob IDs retrieved at the pinned revision. CRLF conversion or
+packaging differences may legitimately fail exact byte equality. No package
+import, subprocess, installation, API or credential access occurs. A match
+does not authenticate the interpreter, executable, entire dependency closure,
+installed commit or capability. Resolve any mismatch before the real pilot.
+
+## Complementary discovery: AutoResearchClaw
+
+At pinned source, native CLI supports --from-stage and --to-stage. Restrict
+the first discovery to TOPIC_INIT through LITERATURE_COLLECT (1–4), before
+LITERATURE_SCREEN (5), experiment design (9), code generation (10), and
+paper writing (16–17). Do not auto-approve, resume, or expose other stages.
+The plan is public topic, scope, declared paper target and approved config
+digest; the paper target is a declaration, not a hard upstream limit.
+
+~~~powershell
+pdrw-orch arc preview --plan-file examples/arc-discovery-preview.example.json
+pdrw-orch arc collect --plan-file ARC_PLAN.json --run-root ABSOLUTE_ARC_RUN
+~~~
+
+No automatic config generation or execution. Upstream stage 1 performs
+hardware detection and can try to install torch in sandbox mode; use simulated
+mode, no remote/GPU resources. Startup performs model preflight and can
+copy config into output; do not store literal credentials in config. Disable
+external KB and MetaClaw; review post-pipeline packaging and hooks even with
+stage ceiling. Restrict network and filesystem on the trusted host. Model
+and literature queries need explicit authorization. The preview cannot
+enforce config, paper target, provider spend, or effect isolation.
+
+Intake checks expected artifact files and reported four-stage completion,
+rejects visible later-stage directories and inconsistent candidate counts.
+A reported real search or unmarked candidate does not prove source existence;
+upstream stage 4 has placeholder and LLM fallback paths. No config digest
+binding or process provenance is inferred. Return raw untrusted result for
+independent literature verification and H3 candidate review, not a claim
+of novelty or actual author decision. The caller must confirm the source
+and run context; absence of later-stage files is not proof of no effects.
+
+RD-Agent deeper screening found native custom DataScienceScen, local
+competition/evaluator datasets, explicit sampling configuration, and bounded
+step_n/loop_n/timeout; actual custom task and independent evaluator must be
+mapped before dispatch. No automatic Kaggle or Docker setup. Prefer actual
+AIDE acceptance over a speculative third adapter.
+
 ## Next development / evaluation
 
 After the first actual AIDE result, compare a matched general host with
 PD-RW-Agent vs AIDE under equivalent evidence, protocol and resource budget.
 Measure real calls/tokens/time/cost, reproducibility and independently valid
-scientific contribution. Choose RD-Agent or ARC next only for complementary
-capability; ARC must support a bounded stage and no automatic manuscript.
+scientific contribution. Choose RD-Agent next only for complementary capability. ARC preview/intake remains bounded and requires live acceptance before real discovery use.
 The existing mock, Codex/Claude and source bridge stay compatible. Neither the
 catalog nor preview/collect makes general registry agents ready. No live
 specialist run or scientific benefit is claimed by CI.

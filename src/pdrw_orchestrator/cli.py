@@ -9,6 +9,8 @@ from .agent_result import normalize_result
 from .specialists import candidates as specialist_candidates
 from .adapters.aide import preview_aide, collect_aide
 from . import aide_pilot
+from .adapters.aide_install import inspect_aide_install
+from .adapters.arc import preview_arc, collect_arc
 from .assets import data_root
 from .adapters.codex import probe_codex
 from .capabilities import accept_codex_pilot_probe
@@ -100,6 +102,12 @@ def build_parser() -> argparse.ArgumentParser:
     pilot.add_argument("--feedback-model")
     pilot.add_argument("--steps", type=int, default=3)
     pilot.add_argument("--step-timeout", type=int, default=60)
+    aide_install = commands.add_parser("aide-install", help="Read-only pinned source subset inspection")
+    aide_install.add_argument("--root", required=True)
+    arc = commands.add_parser("arc", help="Limited native discovery preview and artifact intake")
+    arc.add_argument("action", choices=["preview", "collect"])
+    arc.add_argument("--plan-file", required=True)
+    arc.add_argument("--run-root")
     policy = commands.add_parser("policy")
     policy.add_argument("action", choices=["check", "explain"])
     policy.add_argument("rule_id", nargs="?")
@@ -262,6 +270,16 @@ def main(argv: list[str] | None = None) -> int:
                 result = aide_pilot.verify(args.root)
             else:
                 result = aide_pilot.score(args.root)
+        elif args.command == "aide-install":
+            result = inspect_aide_install(args.root)
+        elif args.command == "arc":
+            plan = _bounded_json_file(args.plan_file, "ARC_PLAN")
+            if args.action == "preview":
+                result = preview_arc(plan)
+            else:
+                if not args.run_root:
+                    raise ValueError("ARC_RUN_ROOT_REQUIRED")
+                result = collect_arc(plan, args.run_root)
         elif args.command == "policy":
             rules = load_policy(args.policy)
             if args.action == "check":

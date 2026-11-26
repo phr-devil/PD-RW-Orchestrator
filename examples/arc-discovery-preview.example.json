@@ -1,0 +1,10 @@
+{
+  "schema_version": "arc-discovery-preview-v1",
+  "project_id": "PUBLIC-SYNTHETIC",
+  "task_id": "DISCOVERY-001",
+  "attempt_id": "arc-001",
+  "public_topic": "Public literature on independent group evaluation in wearable sensor regression",
+  "research_scope": "Compare candidate literature and limitations only; no manuscript or experiments.",
+  "max_papers": 10,
+  "config_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}
