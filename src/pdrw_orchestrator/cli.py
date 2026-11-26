@@ -125,6 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     specialist_host_cli.add_argument("--plan-file")
     specialist_host_cli.add_argument("--source-root")
     specialist_host_cli.add_argument("--run-name")
+    specialist_host_cli.add_argument("--score-replay", action="store_true", help="Collect independently scored replay predictions for algorithm pilots")
     policy = commands.add_parser("policy")
     policy.add_argument("action", choices=["check", "explain"])
     policy.add_argument("rule_id", nargs="?")
@@ -312,15 +313,15 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "specialist-host":
             plan = _bounded_json_file(args.plan_file, "SPECIALIST_PLAN") if args.plan_file else None
             if args.action == "prepare":
-                if args.run_name:
-                    raise ValueError("RUN_NAME_ONLY_FOR_COLLECTION")
+                if args.run_name or args.score_replay:
+                    raise ValueError("COLLECTION_OPTIONS_ONLY_FOR_COLLECTION")
                 result = specialist_host.prepare(args.provider, args.root, plan=plan,
                     source_root=args.source_root, rules=load_policy(args.policy))
             else:
                 if args.source_root:
                     raise ValueError("SOURCE_ROOT_ONLY_FOR_PREPARATION")
                 result = specialist_host.collect(args.provider, args.root, plan=plan,
-                    run_name=args.run_name)
+                    run_name=args.run_name, score_replay=args.score_replay)
         elif args.command == "policy":
             rules = load_policy(args.policy)
             if args.action == "check":
@@ -481,11 +482,13 @@ def main(argv: list[str] | None = None) -> int:
                     raise ValueError("EVALUATION_HANDOFF_NOT_USED")
                 result = evaluate_pairs(assessment)
         elif args.command == "advise":
+            intake_metadata = None
             if args.intake_file:
                 if args.task_file or args.result_file:
                     raise ValueError("INTAKE_OR_TASK_RESULT_NOT_BOTH")
-                task, original = specialist_host.unpack_intake(
-                    _bounded_json_file(args.intake_file, "SPECIALIST_INTAKE"))
+                intake = _bounded_json_file(args.intake_file, "SPECIALIST_INTAKE")
+                task, original = specialist_host.unpack_intake(intake)
+                intake_metadata = specialist_host.review_metadata(intake)
             else:
                 if not args.task_file or not args.result_file:
                     raise ValueError("TASK_AND_RESULT_OR_INTAKE_REQUIRED")
@@ -555,6 +558,11 @@ def main(argv: list[str] | None = None) -> int:
             next_guidance = compile_guidance(proposed, all_rules + extra)
             result = build_bundle(task, normalized, decision, guidance,
                                   next_guidance=next_guidance, source_context=context)
+            if intake_metadata is not None:
+                result["specialist_intake"] = intake_metadata
+                result["chatgpt_handoff_md"] += (
+                    "\n## Specialist intake (reported byte hashes and optional scores; not reverified)\n"
+                    + json.dumps(intake_metadata, ensure_ascii=False) + "\n")
             if retrieval is not None:
                 retrieval["selected_experience_rule_ids"] = [
                     item["id"] for item in next_guidance.selected_items

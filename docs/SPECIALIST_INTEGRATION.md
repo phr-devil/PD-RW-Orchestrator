@@ -256,9 +256,14 @@ RD uses --provider rdagent and its prepared root; ARC uses --provider arc,
 its worker root and --plan-file ARC_PLAN.json, with output under run/.
 No run-name is needed for those providers. The unified intake maps existing
 native outputs to the existing TaskPacket and v2 agent result, with refs
-relative to the operator-selected attempt root. The envelope is untrusted:
-advise normalizes only the task and agent self-report, not artifact metadata,
-and does not independently re-open sources. Use existing --with-pdrw and
+relative to the operator-selected attempt root. For an AIDE/RD replay already exported to review/submission.csv, add
+--score-replay to collect; the shared independent scorer then contributes
+RMSE, reference baselines, prediction digest and per-group errors to the
+private intake. For ARC the intake preserves candidate and placeholder counts.
+The envelope is untrusted: advise normalizes the task and agent self-report,
+checks the structure of artifact references and carries bounded reported
+hashes/metrics into the handoff, but does not independently re-open sources
+or verify prediction/code provenance. Full group metrics remain in the intake. Use existing --with-pdrw and
 Experience options when relevant and actually available. For synthetic
 pilots do not invent original project Run IDs. For ARC, independently verify
 literature and prepare H3 options; no automatic author choice. If the provider

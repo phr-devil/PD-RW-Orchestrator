@@ -52,6 +52,7 @@ def test_host_aide_prepare_and_intake(tmp_path, monkeypatch, capsys):
     (run / "journal.json").write_text("{}", encoding="utf-8")
     assert "WORKER_NOT_FRESH_RECONCILE" in specialist_host.prepare("aide", root)["blockers"]
     packet = specialist_host.collect("aide", root, run_name="0-a1")
+    assert packet["artifact_observation"]["provider_summary"] is None
     assert packet["agent_result"]["deliverables"]["code_refs"] == ["worker/logs/0-a1/best_solution.py"]
     assert not packet["artifact_observation"]["plan_binding_verified"]
     path = tmp_path / "intake.json"
@@ -60,6 +61,8 @@ def test_host_aide_prepare_and_intake(tmp_path, monkeypatch, capsys):
     result = json.loads(capsys.readouterr().out)
     assert result["decision"]["decision_type"] == "INDEPENDENT_REVIEW"
     assert not result["scientific_completion_verified"]
+    assert result["specialist_intake"]["origin"] == "UNTRUSTED_SPECIALIST_INTAKE_FILE"
+    assert not result["specialist_intake"]["artifact_bytes_reverified_by_advise"]
     assert main(["advise", "--intake-file", str(path), "--task-file", "other"]) == 2
     capsys.readouterr()
     packet["agent_result"]["task_id"] = "wrong"
@@ -130,3 +133,40 @@ def test_arc_intake_rebases_and_preserves_review(tmp_path):
     assert all(x.startswith("run/") for x in raw["deliverables"]["report_refs"])
     assert raw["execution"]["status"] == "NEEDS_REVIEW"
     assert not raw["scientific_completion_verified"]
+
+def test_collect_replay_score_and_intake_validation(tmp_path, capsys):
+    import csv
+    root = tmp_path.resolve() / "pilot"
+    aide(root)
+    run = root / "worker" / "logs" / "0-a1"
+    run.mkdir(parents=True)
+    (run / "best_solution.py").write_text("pass", encoding="utf-8")
+    (run / "journal.json").write_text("{}", encoding="utf-8")
+    with (root / "worker" / "data" / "test.csv").open(newline="", encoding="ascii") as stream:
+        ids = [r["row_id"] for r in csv.DictReader(stream)]
+    with (root / "review" / "submission.csv").open("w", newline="", encoding="ascii") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(["row_id", "prediction"])
+        writer.writerows((key, 0) for key in ids)
+    assert main(["specialist-host", "collect", "--provider", "aide", "--root", str(root),
+                 "--run-name", "0-a1", "--score-replay"]) == 0
+    packet = json.loads(capsys.readouterr().out)
+    summary = specialist_host.review_metadata(packet)["provider_summary"]
+    assert summary["rows"] == 48 and not summary["prediction_origin_verified"]
+    assert summary["candidate_rmse"] > summary["linear_baseline_rmse"]
+    packet["agent_result"]["execution"] = []
+    with pytest.raises(ValueError):
+        specialist_host.unpack_intake(packet)
+
+
+def test_intake_rejects_artifact_trust_escalation(tmp_path):
+    root = tmp_path.resolve() / "pilot"
+    aide(root)
+    run = root / "worker" / "logs" / "0-a1"
+    run.mkdir(parents=True)
+    (run / "best_solution.py").write_text("pass", encoding="utf-8")
+    (run / "journal.json").write_text("{}", encoding="utf-8")
+    packet = specialist_host.collect("aide", root, run_name="0-a1")
+    packet["artifact_observation"]["scientific_validity_verified"] = True
+    with pytest.raises(ValueError):
+        specialist_host.unpack_intake(packet)

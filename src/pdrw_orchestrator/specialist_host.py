@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import json
+import math
+import re
 from pathlib import Path
 
 from . import aide_pilot
@@ -116,8 +117,10 @@ def prepare(provider, root, *, plan=None, source_root=None, rules=()):
     }
 
 
-def collect(provider, root, *, plan=None, run_name=None):
+def collect(provider, root, *, plan=None, run_name=None, score_replay=False):
     root, cwd, plan, native, task = _context(provider, root, plan)
+    if score_replay and provider == "arc":
+        raise ValueError("SCORING_ONLY_FOR_ALGORITHM_PILOTS")
     if provider == "aide":
         if not run_name:
             raise ValueError("AIDE_RUN_NAME_REQUIRED")
@@ -139,6 +142,19 @@ def collect(provider, root, *, plan=None, run_name=None):
     for name in _ARTIFACT_FIELDS:
         raw["deliverables"][name] = [prefix + ref for ref in raw["deliverables"][name]]
     artifacts = [{**a, "ref": prefix + a["ref"]} for a in observed["artifacts"]]
+    # Carry useful native observations without treating them as findings.
+    provider_summary = None
+    if provider == "arc":
+        provider_summary = {key: observed[key] for key in (
+            "candidate_count", "declared_placeholder_count", "real_search_reported")}
+    elif score_replay:
+        scored = aide_pilot.score(root) if provider == "aide" else rdagent.score(root)
+        if scored["plan_sha256"] != native["plan_sha256"]:
+            raise ValueError("SPECIALIST_SCORE_PLAN_MISMATCH")
+        provider_summary = {key: scored[key] for key in (
+            "prediction_sha256", "rows", "independent_group_count", "metric",
+            "candidate_rmse", "linear_baseline_rmse", "mean_baseline_rmse",
+            "delta_candidate_minus_linear", "group_scores")}
     # These are adapter byte observations, not trusted process or Run receipts.
     normalize_result(raw, task)
     return {"schema_version": "specialist-intake-v1", "provider": provider,
@@ -146,6 +162,7 @@ def collect(provider, root, *, plan=None, run_name=None):
             "plan_sha256_declared": native["plan_sha256"],
             "artifact_observation": {"status": observed["status"], "artifacts": artifacts,
                 "artifact_ref_base": "OPERATOR_SELECTED_ISOLATED_ATTEMPT_ROOT",
+                "provider_summary": provider_summary,
                 "process_completion_verified": False, "plan_binding_verified": False,
                 "scientific_validity_verified": False},
             "execution_authorized": False}
@@ -165,7 +182,79 @@ def unpack_intake(value):
     raw = value["agent_result"]
     if (not isinstance(raw, dict) or raw.get("schema_version") != "2.0"
             or raw.get("agent_id") != provider
-            or raw.get("execution", {}).get("status") != "NEEDS_REVIEW"):
+            or not isinstance(raw.get("execution"), dict)
+            or raw["execution"].get("status") != "NEEDS_REVIEW"):
         raise ValueError("SPECIALIST_INTAKE_RESULT_INVALID")
-    normalize_result(raw, task)
+    normalized = normalize_result(raw, task)
+    observation = value["artifact_observation"]
+    digest = value["plan_sha256_declared"]
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise ValueError("SPECIALIST_INTAKE_DIGEST_INVALID")
+    if (not isinstance(observation, dict)
+            or set(observation) - {"status", "artifacts", "artifact_ref_base",
+                                    "provider_summary", "process_completion_verified",
+                                    "plan_binding_verified", "scientific_validity_verified"}
+            or observation.get("artifact_ref_base") != "OPERATOR_SELECTED_ISOLATED_ATTEMPT_ROOT"
+            or any(observation.get(key) is not False for key in (
+                "process_completion_verified", "plan_binding_verified", "scientific_validity_verified"))):
+        raise ValueError("SPECIALIST_OBSERVATION_INVALID")
+    artifacts = observation.get("artifacts")
+    if not isinstance(artifacts, list) or not 1 <= len(artifacts) <= 32:
+        raise ValueError("SPECIALIST_ARTIFACTS_INVALID")
+    refs = set()
+    for item in artifacts:
+        if not isinstance(item, dict) or set(item) != {"ref", "sha256", "bytes"}:
+            raise ValueError("SPECIALIST_ARTIFACT_INVALID")
+        ref = item["ref"]
+        if (not isinstance(ref, str) or not 1 <= len(ref) <= 300
+                or not re.fullmatch(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*", ref)
+                or any(part in (".", "..") for part in ref.split("/")) or ref in refs
+                or not isinstance(item["sha256"], str)
+                or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])
+                or type(item["bytes"]) is not int or not 1 <= item["bytes"] <= 32*1024*1024):
+            raise ValueError("SPECIALIST_ARTIFACT_INVALID")
+        refs.add(ref)
+    declared_refs = {ref for name in _ARTIFACT_FIELDS for ref in normalized["deliverables"][name]}
+    if normalized["deliverables"]["run_refs"] or declared_refs != refs:
+        raise ValueError("SPECIALIST_ARTIFACT_REFERENCE_MISMATCH")
     return task, raw
+
+
+def review_metadata(value):
+    """Return only bounded observation fields; never accept caller attestations."""
+    observation = value["artifact_observation"]
+    provider = value["provider"]
+    summary = observation.get("provider_summary")
+    safe_summary = None
+    if summary is not None:
+        if not isinstance(summary, dict):
+            raise ValueError("SPECIALIST_PROVIDER_SUMMARY_INVALID")
+        if provider == "arc":
+            count, placeholders = summary.get("candidate_count"), summary.get("declared_placeholder_count")
+            real = summary.get("real_search_reported")
+            if (type(count) is not int or not 0 <= count <= 1000
+                    or type(placeholders) is not int or not 0 <= placeholders <= count
+                    or type(real) is not bool):
+                raise ValueError("SPECIALIST_ARC_SUMMARY_INVALID")
+            safe_summary = {"candidate_count": count, "declared_placeholder_count": placeholders,
+                            "real_search_reported": real, "literature_verified": False}
+        else:
+            numeric = ("candidate_rmse", "linear_baseline_rmse", "mean_baseline_rmse",
+                       "delta_candidate_minus_linear")
+            if (summary.get("rows") != 48 or summary.get("independent_group_count") != 4
+                    or summary.get("metric") != "RMSE"
+                    or not isinstance(summary.get("prediction_sha256"), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", summary["prediction_sha256"])
+                    or any(type(summary.get(k)) not in (int, float) or
+                           not math.isfinite(summary[k]) or abs(summary[k]) > 2e6 for k in numeric)):
+                raise ValueError("SPECIALIST_SCORE_SUMMARY_INVALID")
+            safe_summary = {k: summary[k] for k in (*numeric, "rows", "independent_group_count",
+                                                    "metric", "prediction_sha256")}
+            safe_summary.update({"prediction_origin_verified": False, "candidate_code_binding_verified": False})
+            # Group details remain in the private original intake.
+    return {"origin": "UNTRUSTED_SPECIALIST_INTAKE_FILE", "provider": provider,
+            "plan_sha256_declared": value["plan_sha256_declared"],
+            "artifact_ref_base": observation["artifact_ref_base"],
+            "artifacts": observation["artifacts"], "provider_summary": safe_summary,
+            "artifact_bytes_reverified_by_advise": False, "authorization_verified": False,
+            "scientific_validity_verified": False}
